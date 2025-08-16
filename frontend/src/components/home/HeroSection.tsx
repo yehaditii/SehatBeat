@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Activity, ArrowRight, Shield, Users, Zap } from "lucide-react";
-import heroImage from "@/assets/hero-medical.jpg";
+import heroImage from "@/assets/medical.jpg";
 
 export const HeroSection = () => {
   return (
