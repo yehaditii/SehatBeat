@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 import { AIAssistant } from "@/components/ai/AIAssistant";
-import Index from "./pages/Index";
+import Index from "./pages/Index.tsx";
 import ClinicalDocs from "./pages/ClinicalDocs";
 import Symptomate from "./pages/Symptomate";
 import Medicine from "./pages/Medicine";
