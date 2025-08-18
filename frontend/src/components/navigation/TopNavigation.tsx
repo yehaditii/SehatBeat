@@ -5,8 +5,6 @@ import {
   Home, 
   ShoppingCart, 
   Bell, 
-  TestTube, 
-  Stethoscope, 
   Activity,
   FileText,
   Menu,
@@ -14,12 +12,41 @@ import {
   User
 } from "lucide-react";
 
+// Import Clerk components
+import {
+  SignInButton,
+  SignedIn,
+  SignedOut,
+  UserButton
+} from "@clerk/clerk-react";
+
+// Check if Clerk is available
+const isClerkAvailable = () => {
+  try {
+    return !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+  } catch {
+    return false;
+  }
+};
+
+// Fallback components when Clerk is not available
+const FallbackSignInButton = ({ children }: { children: React.ReactNode }) => (
+  <Button size="sm" className="bg-gradient-primary text-primary-foreground shadow-medium hover:shadow-strong">
+    {children}
+  </Button>
+);
+
+const FallbackUserButton = () => (
+  <Button variant="ghost" size="sm">
+    <User className="w-4 h-4 mr-2" />
+    Profile
+  </Button>
+);
+
 const navigationItems = [
   { name: "Home", path: "/", icon: Home },
   { name: "Medicine", path: "/medicine", icon: ShoppingCart },
   { name: "Reminders", path: "/reminders", icon: Bell },
-  { name: "Lab Tests", path: "/lab-tests", icon: TestTube },
-  { name: "Doctors", path: "/doctors", icon: Stethoscope },
   { name: "SehatBeat AI", path: "/sehatbeat-ai", icon: Activity },
   { name: "Clinical Docs", path: "/clinical-docs", icon: FileText, highlighted: true },
 ];
@@ -73,9 +100,30 @@ export const TopNavigation = () => {
               <User className="w-4 h-4 mr-2" />
               Profile
             </Button>
-            <Button size="sm" className="bg-gradient-primary text-primary-foreground shadow-medium hover:shadow-strong">
-              Sign In
-            </Button>
+            {isClerkAvailable() ? (
+              <>
+                <SignedIn>
+                  <UserButton
+                    appearance={{ variables: { colorPrimary: "#7c3aed" } }}
+                    afterSignOutUrl="/"
+                  />
+                </SignedIn>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <Button 
+                      size="sm" 
+                      className="bg-gradient-primary text-primary-foreground shadow-medium hover:shadow-strong"
+                    >
+                      Sign In
+                    </Button>
+                  </SignInButton>
+                </SignedOut>
+              </>
+            ) : (
+              <FallbackSignInButton>
+                Sign In
+              </FallbackSignInButton>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -119,9 +167,27 @@ export const TopNavigation = () => {
                 <User className="w-4 h-4 mr-2" />
                 Profile
               </Button>
-              <Button size="sm" className="bg-gradient-primary text-primary-foreground">
-                Sign In
-              </Button>
+              {isClerkAvailable() ? (
+                <>
+                  <SignedIn>
+                    <UserButton
+                      appearance={{ variables: { colorPrimary: "#7c3aed" } }}
+                      afterSignOutUrl="/"
+                    />
+                  </SignedIn>
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <Button size="sm" className="bg-gradient-primary text-primary-foreground">
+                        Sign In
+                      </Button>
+                    </SignInButton>
+                  </SignedOut>
+                </>
+              ) : (
+                <FallbackSignInButton>
+                  Sign In
+                </FallbackSignInButton>
+              )}
             </div>
           </div>
         )}

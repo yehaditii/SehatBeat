@@ -1,51 +1,55 @@
-#SehatBeat
-A modern healthcare platform for patients, doctors, and labs – designed with simplicity, accessibility, and innovation in mind.
+SehatBeat
+A modern healthcare frontend platform offering intuitive digital wellness tools—from medicine ordering and reminders to AI-powered symptom analysis and clinical documentation.
 
-Symptomate (formerly MediConnect) provides a complete medical ecosystem with features like medicine ordering, smart reminders, lab test management, doctor discovery, AI-powered symptom analysis, and structured clinical documentation.
+Overview
+SehatBeat is a responsive web application designed to provide a seamless healthcare experience for patients. It features:
 
-#Features
-SehatBeat AI (New!)
-A virtual AI health assistant that appears as a friendly doctor-like bot in the bottom-right corner.
-Helps with symptom analysis, triage, and doctor recommendations.
-Default greeting: “Hello, I’m SehatBeat AI, your personal health companion. Tell me your symptoms, and I’ll help analyze them, suggest possible causes, and guide you to the right doctor.”
-Can also answer queries about platform usage.
+SehatBeat AI Assistant — a female doctor-like bot (bottom-right) that guides users via symptom analysis, triage, and doctor recommendations
+Medicine Ordering — browse, search, add to cart, and place orders
+Smart Reminders — schedule and manage medicine, lab test, and doctor appointment reminders with a calendar overview
+Lab Tests — schedule tests, upload and review lab reports, and track pending/completed tests
+Doctors Directory — find medical professionals by specialization and location, view profiles, and book appointments
+Symptom Checker — interactive triage tool with a 3D anatomical body model for visual symptom selection
+Clinical Documentation — upload, view, and manage structured clinical notes via a dedicated navbar tab, highlighted as "NEW"
+Key Features
+SehatBeat AI Assistant
+Floating health assistant character located at the bottom-right corner
+Introduces itself: “Hello, I’m SehatBeat AI, your personal health companion… Tell me your symptoms, and I’ll help analyze them, suggest possible causes, and guide you to the right doctor.”
+Handles symptom analysis, triage, general queries, and directs the user to appropriate features or medical professionals
 Medicine Ordering
-Browse and search for medicines.
-Add to cart and place orders.
-View prescription history.
+Browse and search a catalog of medicines
+Add items to cart and complete purchase flows
+View and manage past prescription history
 Smart Reminders
-Schedule and manage reminders for:
-Medicine intake
-Doctor appointments
-Lab tests
-Calendar view for upcoming events.
+Create reminders for medication intake, lab tests, and appointments
+Calendar view to manage upcoming reminders efficiently
 Lab Tests
-Browse and schedule lab tests.
-Upload and manage lab reports (PDFs, images).
-Track pending and completed tests.
+Schedule tests and browse available options
+Upload reports (PDF, image formats)
+Track and differentiate between pending and completed lab tests
 Doctors Directory
-Search doctors by specialization and location.
-View doctor profiles with details.
-Book appointments online.
-Symptom Checker (Symptomate)
-Interactive tool for self-diagnosis and triage.
-Integrated with SehatBeat AI assistant for real-time conversation.
-Includes a 3D anatomical body model (Three.js) for visual symptom selection.
-Clinical Documentation (Highlighted Feature)
-Upload, view, and manage structured clinical notes.
-Dedicated page in navbar (highlighted with a “NEW” badge).
-Helps patients and doctors keep a shared, accurate record.
-Design Principles
-No sidebar – navigation via top navbar (desktop) and bottom tab bar (mobile).
-Clean, modern UI with Tailwind CSS.
-Smooth animations with Framer Motion.
-Responsive across devices.
-Engaging 3D elements for better interaction.
-Tech Stack
-Frontend: React + TypeScript + Tailwind CSS
+Search for doctors by specialization or geographic area
+View detailed profile cards
+Book and manage appointments directly within the platform
+Symptom Checker
+Use SehatBeat AI for real-time interactive symptom diagnosis
+Explore a 3D anatomical model (via Three.js) to select symptoms visually for more refined results
+Clinical Documentation
+Dedicated “Clinical Documentation” section in the navbar
+Highlighted with a "NEW" badge for visibility
+Upload and manage structured clinical notes for shared patient-doctor reference
+Design & UX Principles
+No sidebar — navigation via top navbar (desktop) and bottom tab bar (mobile)
+Clean, modern UI using Tailwind CSS
+Engaging animations powered by Framer Motion
+Responsive layout optimized for both desktop and mobile experiences
+Functional Get Started buttons that redirect users to corresponding sections or features
+Technology Stack
+Frontend: React with TypeScript
+Styling: Tailwind CSS
 Animations: Framer Motion
-3D Models: Three.js
-AI Assistant: Placeholder (OpenAI API / Rasa)
-State Management: React Hooks / Context API
+3D Visualization: Three.js
+AI Assistant: Placeholder integration (OpenAI API / Rasa or similar)
+State Management: React Hooks (and optionally Context API)
 Project Structure
-FRONTEND ├── public/ # Static assets ├── src/ │ ├── components/ # Reusable UI components │ ├── pages/ # Feature pages (Medicine, Reminders, etc.) │ ├── ai/ # SehatBeat AI bot integration │ ├── assets/ # Icons, images, 3D models │ └── App.tsx # Main app entry ├── package.json ├── README.md
+FRONTEND ├── public/ ├── src/ │ ├── components/ │ ├── pages/ │ │ ├── Home.tsx │ │ ├── Medicine.tsx │ │ ├── Reminders.tsx │ │ ├── LabTests.tsx │ │ ├── Doctors.tsx │ │ ├── SymptomChecker.tsx │ │ ├── ClinicalDocs.tsx │ ├── ai/ │ │ └── SehatBeatBot.tsx │ ├── assets/ │ │ └── 3d-models/ │ └── App.tsx ├── package.json ├── README.md

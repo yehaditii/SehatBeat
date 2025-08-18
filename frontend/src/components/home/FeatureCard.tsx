@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LucideIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface FeatureCardProps {
   title: string;
@@ -22,9 +23,38 @@ export const FeatureCard = ({
   href,
   stats
 }: FeatureCardProps) => {
+  const navigate = useNavigate();
+  
   const cardClass = isHighlighted
     ? "border-accent bg-gradient-to-br from-accent-soft to-background shadow-strong hover:shadow-accent/20 ring-2 ring-accent/20"
     : "hover:shadow-medium transition-all duration-300 hover:-translate-y-1";
+
+  // Check if this is Lab Tests or Doctor Directory to show Coming Soon
+  const isComingSoon = comingSoon || title === "Lab Tests" || title === "Doctor Directory";
+
+  // Handle navigation based on feature type
+  const handleNavigation = () => {
+    if (isComingSoon) return;
+    
+    switch (title) {
+      case "Medicine Ordering":
+        navigate("/medicine");
+        break;
+      case "Smart Reminders":
+        navigate("/reminders");
+        break;
+      case "SehatBeat AI Checker":
+        navigate("/sehatbeat-ai");
+        break;
+      case "Clinical Documentation":
+        navigate("/clinical-docs");
+        break;
+      default:
+        if (href) {
+          window.location.href = href;
+        }
+    }
+  };
 
   return (
     <Card className={`relative overflow-hidden ${cardClass}`}>
@@ -57,10 +87,13 @@ export const FeatureCard = ({
           {description}
         </p>
         
-        {comingSoon ? (
-          <Badge variant="outline" className="w-fit">
+        {isComingSoon ? (
+          <Button 
+            variant="outline" 
+            className="w-full border-2 border-muted-foreground text-muted-foreground hover:bg-green-500 hover:text-white hover:border-green-500 transition-all duration-300"
+          >
             Coming Soon
-          </Badge>
+          </Button>
         ) : (
           <Button 
             className={`w-full ${
@@ -68,7 +101,7 @@ export const FeatureCard = ({
                 ? "bg-gradient-accent text-accent-foreground hover:shadow-medium" 
                 : "bg-gradient-primary text-primary-foreground hover:shadow-medium"
             }`}
-            onClick={() => href && (window.location.href = href)}
+            onClick={handleNavigation}
           >
             {isHighlighted ? "Explore Clinical Docs" : "Get Started"}
           </Button>

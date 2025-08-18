@@ -12,7 +12,6 @@ const bottomNavItems = [
   { name: "Home", path: "/", icon: Home },
   { name: "Medicine", path: "/medicine", icon: ShoppingCart },
   { name: "Reminders", path: "/reminders", icon: Bell },
-  { name: "Lab Tests", path: "/lab-tests", icon: TestTube },
   { name: "SehatBeat AI", path: "/sehatbeat-ai", icon: Activity },
   { name: "Clinical", path: "/clinical-docs", icon: FileText, highlighted: true },
 ];
