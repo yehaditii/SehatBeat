@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { useMedicines, useCart } from "@/hooks/useConvex";
 import { useAuth } from "@clerk/clerk-react";
+import { useToast } from "@/hooks/use-toast";
 
 const categories = ['All', 'Pain Relief', 'Vitamins', 'Digestive Health', 'Antibiotics', 'Allergy'];
 
@@ -23,6 +25,7 @@ const Medicine = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const { isSignedIn } = useAuth();
+  const { toast } = useToast();
   
   // Fetch medicines from Convex
   const medicines = useMedicines(
@@ -40,15 +43,72 @@ const Medicine = () => {
       // Handle authentication requirement
       return;
     }
-    await addItemToCart(medicineId, 1);
+    
+    try {
+      await addItemToCart(medicineId, 1);
+      
+      // Find the medicine name for the toast
+      const medicine = medicines?.find(m => m._id === medicineId);
+      
+      toast({
+        title: "Added to Cart!",
+        description: `${medicine?.name || 'Medicine'} has been added to your cart.`,
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add item to cart. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   const removeFromCart = async (cartItemId: string) => {
-    await removeItemFromCart(cartItemId);
+    try {
+      await removeItemFromCart(cartItemId);
+      
+      toast({
+        title: "Removed from Cart",
+        description: "Item has been removed from your cart.",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove item from cart. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   const updateQuantity = async (cartItemId: string, quantity: number) => {
-    await updateItemQuantity(cartItemId, quantity);
+    try {
+      await updateItemQuantity(cartItemId, quantity);
+      
+      if (quantity === 0) {
+        toast({
+          title: "Removed from Cart",
+          description: "Item has been removed from your cart.",
+          duration: 3000,
+        });
+      } else {
+        toast({
+          title: "Cart Updated",
+          description: `Quantity updated to ${quantity}.`,
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update quantity. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   const getTotalItems = () => {
@@ -264,6 +324,24 @@ const Medicine = () => {
           </div>
         )}
       </div>
+
+      {/* Floating Cart Button */}
+      {isSignedIn && getTotalItems() > 0 && (
+        <Link
+          to="/cart"
+          className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 z-40"
+        >
+          <Button
+            size="lg"
+            className="bg-gradient-primary text-primary-foreground shadow-strong hover:shadow-stronger rounded-full w-14 h-14 p-0 relative"
+          >
+            <ShoppingCart className="w-6 h-6" />
+            <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+              {getTotalItems() > 99 ? '99+' : getTotalItems()}
+            </span>
+          </Button>
+        </Link>
+      )}
     </div>
   );
 };

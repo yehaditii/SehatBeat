@@ -61,6 +61,7 @@ export default defineSchema({
       city: v.string(),
       state: v.string(),
       zipCode: v.string(),
+      country: v.string(),
     }),
     orderDate: v.number(),
     estimatedDelivery: v.optional(v.number()),

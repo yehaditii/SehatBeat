@@ -51,6 +51,8 @@ export const useCart = () => {
     addItemToCart,
     updateItemQuantity,
     removeItemFromCart,
+    isLoading: user === undefined,
+    userLoaded: !!user?._id,
   };
 };
 
@@ -277,6 +279,7 @@ export const useOrders = () => {
       city: string;
       state: string;
       zipCode: string;
+      country: string;
     };
   }) => {
     if (!user?._id) return;

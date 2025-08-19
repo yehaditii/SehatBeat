@@ -8,10 +8,18 @@ import { Id } from "./_generated/dataModel";
 export const getUserProfile = query({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const users = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
-      .unique();
+      .collect();
+    
+    // If multiple profiles exist, return the first one and log a warning
+    if (users.length > 1) {
+      console.warn(`Multiple user profiles found for clerkId: ${args.clerkId}. Returning first profile.`);
+      // TODO: In production, you might want to clean up duplicates here
+    }
+    
+    return users[0] || null;
   },
 });
 
@@ -36,6 +44,18 @@ export const createUserProfile = mutation({
     })),
   },
   handler: async (ctx, args) => {
+    // Check if user profile already exists
+    const existingUsers = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .collect();
+    
+    if (existingUsers.length > 0) {
+      console.log(`User profile already exists for clerkId: ${args.clerkId}`);
+      return existingUsers[0]; // Return existing profile instead of creating duplicate
+    }
+    
+    // Create new profile
     return await ctx.db.insert("users", args);
   },
 });
@@ -62,6 +82,40 @@ export const updateUserProfile = mutation({
   },
   handler: async (ctx, args) => {
     return await ctx.db.patch(args.userId, args.updates);
+  },
+});
+
+// Clean up duplicate user profiles
+export const cleanupDuplicateProfiles = mutation({
+  args: {},
+  handler: async (ctx, args) => {
+    const allUsers = await ctx.db.query("users").collect();
+    const clerkIdGroups = new Map();
+    
+    // Group users by clerkId
+    for (const user of allUsers) {
+      if (!clerkIdGroups.has(user.clerkId)) {
+        clerkIdGroups.set(user.clerkId, []);
+      }
+      clerkIdGroups.get(user.clerkId).push(user);
+    }
+    
+    let cleanedCount = 0;
+    
+    // Remove duplicates, keeping the first profile for each clerkId
+    for (const [clerkId, users] of clerkIdGroups) {
+      if (users.length > 1) {
+        console.log(`Cleaning up ${users.length - 1} duplicate profiles for clerkId: ${clerkId}`);
+        
+        // Keep the first profile, delete the rest
+        for (let i = 1; i < users.length; i++) {
+          await ctx.db.delete(users[i]._id);
+          cleanedCount++;
+        }
+      }
+    }
+    
+    return { cleanedCount, message: `Cleaned up ${cleanedCount} duplicate profiles` };
   },
 });
 
@@ -195,6 +249,7 @@ export const createOrder = mutation({
       city: v.string(),
       state: v.string(),
       zipCode: v.string(),
+      country: v.string(),
     }),
   },
   handler: async (ctx, args) => {
