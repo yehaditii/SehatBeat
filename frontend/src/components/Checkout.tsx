@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "convex/react";
 import { api } from "../../../backend/convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useConvex";
-import { useClerkBilling } from "@/config/clerk";
+import { useClerkBilling } from "../config/clerk";
 
 interface CheckoutProps {
   cartItems: any[];
