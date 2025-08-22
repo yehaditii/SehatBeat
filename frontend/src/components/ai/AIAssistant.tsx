@@ -133,14 +133,16 @@ export const AIAssistant = () => {
       const analysisMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: "🔍 Analyzing your symptoms with AI... This may take a moment.",
+        content: `🔍 **Analyzing your symptoms with Perplexity AI...**
+
+Please wait while I process your request. This may take a few seconds.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, analysisMessage]);
 
       // Call Perplexity AI to analyze symptoms
       try {
-        const response = await fetch('/api/analyze-symptoms', {
+        const response = await fetch('http://localhost:3000/api/analyze-symptoms', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -152,10 +154,13 @@ export const AIAssistant = () => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to analyze symptoms');
+          const errorText = await response.text();
+          console.error('API Error:', response.status, errorText);
+          throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
+        console.log('API Response:', result);
         
         // Remove the temporary analysis message
         setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
@@ -164,7 +169,15 @@ export const AIAssistant = () => {
         const aiResponse: Message = {
           id: (Date.now() + 2).toString(),
           type: 'bot',
-          content: result.analysis || "I've analyzed your symptoms and provided recommendations below.",
+          content: `🤖 **AI Analysis Complete!**
+
+${result.analysis || "I've analyzed your symptoms and provided recommendations below."}
+
+**Severity Level:** ${result.severity || "Moderate"}
+**Recommendations:**
+${(result.recommendations || ["Consult a healthcare professional"]).map(rec => `• ${rec}`).join('\n')}
+
+*This analysis was provided by Perplexity AI. Always consult healthcare professionals for medical decisions.*`,
           timestamp: new Date(),
           metadata: {
             symptoms: [inputMessage],
@@ -176,37 +189,60 @@ export const AIAssistant = () => {
         
         setIsTyping(false);
       } catch (fetchError) {
-        // Fallback to basic health response
-        const fallbackResponse: Message = {
-          id: (Date.now() + 2).toString(),
-          type: 'bot',
-          content: `Based on your symptom "${inputMessage}", here are some general recommendations:
+        console.error('Fetch Error:', fetchError);
+        
+        // Check if it's a network error (backend not running)
+        if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
+          const networkErrorResponse: Message = {
+            id: (Date.now() + 2).toString(),
+            type: 'bot',
+            content: `🔌 **Connection Error**
 
-🔍 **Common Causes:**
-• Stress and tension
-• Dehydration
-• Poor posture
-• Eye strain
-• Lack of sleep
+I'm unable to connect to the AI service right now. This usually means:
+• The backend server is not running
+• There's a network connectivity issue
+• The API service is temporarily unavailable
 
-💡 **Immediate Steps:**
-• Rest in a quiet, dark room
-• Stay hydrated
-• Practice deep breathing
-• Consider over-the-counter pain relief
-• Avoid bright screens
+**To fix this:**
+1. Make sure the backend server is running (\`npm run dev\` in backend folder)
+2. Check if you have a Perplexity AI API key in your \`.env.local\` file
+3. Try again in a few moments
 
-⚠️ **Seek Medical Attention if:**
-• Severe or sudden onset
-• Accompanied by fever, confusion, or vision changes
-• Lasts more than 24 hours
+**Fallback Advice for "${inputMessage}":**
+• Rest and stay hydrated
+• Monitor your symptoms closely
+• Consider over-the-counter relief if appropriate
+• Consult a healthcare professional if symptoms persist
 
 This is general advice only. Please consult a healthcare professional for proper diagnosis.`,
-          timestamp: new Date()
-        };
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
+          setMessages(prev => [...prev, networkErrorResponse]);
+        } else {
+          // Other API errors
+          const errorResponse: Message = {
+            id: (Date.now() + 2).toString(),
+            type: 'bot',
+            content: `⚠️ **API Error**
+
+I encountered an error while analyzing your symptoms: ${fetchError.message}
+
+**Fallback Advice for "${inputMessage}":**
+• Rest and stay hydrated
+• Monitor your symptoms closely
+• Consider over-the-counter relief if appropriate
+• Consult a healthcare professional if symptoms persist
+
+This is general advice only. Please consult a healthcare professional for proper diagnosis.`,
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
+          setMessages(prev => [...prev, errorResponse]);
+        }
         
-        setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
-        setMessages(prev => [...prev, fallbackResponse]);
         setIsTyping(false);
       }
     } catch (error) {
