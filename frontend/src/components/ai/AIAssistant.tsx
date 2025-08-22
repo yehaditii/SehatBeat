@@ -10,14 +10,25 @@ import {
   Bot,
   User,
   Minimize2,
-  Maximize2
+  Maximize2,
+  AlertTriangle,
+  CheckCircle,
+  Clock
 } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../lib/convex";
+import { useCurrentUser } from "../../hooks/useConvex";
 
 interface Message {
   id: string;
   type: 'user' | 'bot';
   content: string;
   timestamp: Date;
+  metadata?: {
+    symptoms?: string[];
+    severity?: string;
+    recommendations?: string[];
+  };
 }
 
 export const AIAssistant = () => {
@@ -29,11 +40,52 @@ export const AIAssistant = () => {
       type: 'bot',
       content: "Hello, I'm **SehatBeat AI**, your personal health companion. Tell me your symptoms, and I'll help analyze them, suggest possible causes, and guide you to the right doctor.",
       timestamp: new Date()
+    },
+    {
+      id: '2',
+      type: 'bot',
+      content: "I'm here to help you with any health concerns. You can ask me about symptoms, get general health advice, or learn about common conditions. Remember, I provide informational support only - always consult healthcare professionals for medical decisions.",
+      timestamp: new Date()
+    },
+    {
+      id: '3',
+      type: 'bot',
+      content: "To get started, simply describe what you're experiencing in the input field below. I'll analyze your symptoms and provide personalized recommendations based on the information you share.",
+      timestamp: new Date()
     }
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Simple scrollbar styles that work across browsers
+  const scrollbarStyles = `
+    /* Basic scrollbar styling */
+    .chat-messages::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: rgba(59, 130, 246, 0.6);
+      border-radius: 4px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+      background: rgba(59, 130, 246, 0.8);
+    }
+  `;
+  
+  const currentUser = useCurrentUser();
+  
+  // Get user's conversation history
+  const conversation = useQuery("getConversation", 
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,6 +94,24 @@ export const AIAssistant = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load conversation history when available
+  useEffect(() => {
+    if (conversation && conversation.messages.length > 0) {
+      const formattedMessages: Message[] = conversation.messages.map((msg, index) => ({
+        id: index.toString(),
+        type: msg.role === 'user' ? 'user' : 'bot',
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        metadata: msg.metadata,
+      }));
+      setMessages(prev => {
+        // Keep the welcome message and add conversation history
+        const welcomeMessage = prev[0];
+        return [welcomeMessage, ...formattedMessages];
+      });
+    }
+  }, [conversation]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,26 +128,159 @@ export const AIAssistant = () => {
     setInputMessage("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "Based on your symptoms, I'd recommend scheduling a consultation with a general practitioner. Would you like me to help you find nearby doctors?",
-        "Those symptoms could indicate several conditions. Let me help you narrow it down - how long have you been experiencing these symptoms?",
-        "I understand your concern. For better analysis, could you describe the severity and frequency of your symptoms?",
-        "Thank you for sharing that information. I'd suggest booking a lab test to get a clearer picture. Shall I show you available tests?",
-        "Based on our conversation, here are some general recommendations. However, I strongly advise consulting with a healthcare professional for proper diagnosis."
-      ];
-
-      const botMessage: Message = {
+    try {
+      // Add a temporary message indicating analysis is in progress
+      const analysisMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: "🔍 Analyzing your symptoms with AI... This may take a moment.",
         timestamp: new Date()
       };
+      setMessages(prev => [...prev, analysisMessage]);
 
-      setMessages(prev => [...prev, botMessage]);
+      // Call Perplexity AI to analyze symptoms
+      try {
+        const response = await fetch('/api/analyze-symptoms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            symptoms: inputMessage,
+            userId: currentUser?._id || "anonymous",
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to analyze symptoms');
+        }
+
+        const result = await response.json();
+        
+        // Remove the temporary analysis message
+        setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
+        
+        // Add the AI response
+        const aiResponse: Message = {
+          id: (Date.now() + 2).toString(),
+          type: 'bot',
+          content: result.analysis || "I've analyzed your symptoms and provided recommendations below.",
+          timestamp: new Date(),
+          metadata: {
+            symptoms: [inputMessage],
+            severity: result.severity || "Moderate",
+            recommendations: result.recommendations || ["Consult a healthcare professional"]
+          }
+        };
+        setMessages(prev => [...prev, aiResponse]);
+        
+        setIsTyping(false);
+      } catch (fetchError) {
+        // Fallback to basic health response
+        const fallbackResponse: Message = {
+          id: (Date.now() + 2).toString(),
+          type: 'bot',
+          content: `Based on your symptom "${inputMessage}", here are some general recommendations:
+
+🔍 **Common Causes:**
+• Stress and tension
+• Dehydration
+• Poor posture
+• Eye strain
+• Lack of sleep
+
+💡 **Immediate Steps:**
+• Rest in a quiet, dark room
+• Stay hydrated
+• Practice deep breathing
+• Consider over-the-counter pain relief
+• Avoid bright screens
+
+⚠️ **Seek Medical Attention if:**
+• Severe or sudden onset
+• Accompanied by fever, confusion, or vision changes
+• Lasts more than 24 hours
+
+This is general advice only. Please consult a healthcare professional for proper diagnosis.`,
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
+        setMessages(prev => [...prev, fallbackResponse]);
+        setIsTyping(false);
+      }
+    } catch (error) {
+      console.error('Error analyzing symptoms:', error);
+      
+      // Remove the temporary analysis message
+      setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
+      
+      let errorContent = "I'm sorry, I encountered an error while analyzing your symptoms. Please try again or contact support if the problem persists.";
+      
+      if (error.message === 'Request timeout') {
+        errorContent = "⚠️ The analysis is taking longer than expected. This might be because the AI service is temporarily unavailable. Please try again in a few moments.";
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorContent = "🔌 I'm having trouble connecting to the AI service. Please check your internet connection and try again.";
+      }
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 3).toString(),
+        type: 'bot',
+        content: errorContent,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
       setIsTyping(false);
-    }, 1500);
+    }
+  };
+
+  // Function to render message content with markdown-like formatting
+  const renderMessageContent = (content: string, metadata?: Message['metadata']) => {
+    if (metadata && metadata.symptoms && metadata.severity && metadata.recommendations) {
+      // Render structured health response
+      return (
+        <div className="space-y-3 max-w-full">
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r-lg">
+            <h4 className="font-semibold text-blue-800 mb-2 text-sm">Health Problem Analysis</h4>
+            <div className="space-y-1 text-xs text-blue-700">
+              {metadata.symptoms.map((symptom, index) => (
+                <div key={index} className="flex items-center">
+                  <AlertTriangle className="w-3 h-3 mr-2 text-orange-500 flex-shrink-0" />
+                  <span className="break-words">{symptom}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-green-50 border-l-4 border-green-400 p-3 rounded-r-lg">
+            <h4 className="font-semibold text-green-800 mb-2 text-sm">Severity Level</h4>
+            <p className="text-xs text-green-700 break-words">{metadata.severity}</p>
+          </div>
+          
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r-lg">
+            <h4 className="font-semibold text-yellow-800 mb-2 text-sm">Immediate Steps</h4>
+            <ul className="text-xs text-yellow-700 space-y-1">
+              {metadata.recommendations.slice(0, 5).map((rec, index) => (
+                <li key={index} className="flex items-start">
+                  <CheckCircle className="w-3 h-3 mr-2 mt-0.5 text-green-500 flex-shrink-0" />
+                  <span className="break-words">{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          <div className="bg-purple-50 border-l-4 border-purple-400 p-3 rounded-r-lg">
+            <h4 className="font-semibold text-purple-800 mb-2 text-sm">Important Note</h4>
+            <p className="text-xs text-purple-700 break-words">
+              This analysis is for informational purposes only. Always consult with a healthcare professional for proper diagnosis and treatment.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    // Render regular message content
+    return <p className="whitespace-pre-wrap break-words">{content}</p>;
   };
 
   if (!isOpen) {
@@ -96,12 +299,14 @@ export const AIAssistant = () => {
   }
 
   return (
-    <Card className={`fixed z-50 bg-background/95 backdrop-blur-md border shadow-strong transition-all duration-300 ${
-      isMinimized 
-        ? "bottom-6 right-6 w-80 h-16 lg:bottom-8 lg:right-8"
-        : "bottom-6 right-6 w-96 h-[500px] lg:bottom-8 lg:right-8 lg:w-[420px] lg:h-[600px]"
-    }`}>
-      {/* Header */}
+    <>
+      <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
+      <Card className={`fixed z-50 bg-background/95 backdrop-blur-md border shadow-strong transition-all duration-300 overflow-hidden ${
+        isMinimized 
+          ? "bottom-6 right-6 w-80 h-16 lg:bottom-8 lg:right-8"
+          : "bottom-6 right-6 w-96 h-[500px] lg:bottom-8 lg:right-8 lg:w-[420px] lg:h-[600px]"
+      }`}>
+        {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-primary rounded-t-lg">
         <div className="flex items-center space-x-3">
           <div className="relative">
@@ -114,7 +319,7 @@ export const AIAssistant = () => {
             <div>
               <h3 className="font-semibold text-primary-foreground">SehatBeat AI</h3>
               <p className="text-xs text-primary-foreground/70">
-                {isTyping ? "Typing..." : "Online"}
+                {isTyping ? "Analyzing..." : "Online"}
               </p>
             </div>
           )}
@@ -142,8 +347,15 @@ export const AIAssistant = () => {
       {!isMinimized && (
         <>
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
+          <div 
+            className="flex-1 overflow-y-auto p-4 chat-messages"
+            style={{ 
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(59, 130, 246, 0.7) rgba(0, 0, 0, 0.05)',
+              maxHeight: '400px'
+            }}
+          >
+            <div className="space-y-4 max-w-full pr-2">
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -157,14 +369,17 @@ export const AIAssistant = () => {
                     </div>
                   )}
                   <div
-                    className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm ${
+                    className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm break-words overflow-hidden ${
                       message.type === 'user'
                         ? 'bg-primary text-primary-foreground ml-auto'
                         : 'bg-muted text-foreground'
                     }`}
+                    style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}
                   >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    <span className="text-xs opacity-70 mt-1 block">
+                    <div className="overflow-x-auto max-w-full">
+                      {renderMessageContent(message.content, message.metadata)}
+                    </div>
+                    <span className="text-xs opacity-70 mt-2 block">
                       {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -181,17 +396,16 @@ export const AIAssistant = () => {
                     <Bot className="w-4 h-4 text-primary-foreground" />
                   </div>
                   <div className="bg-muted px-4 py-3 rounded-2xl">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-100" />
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-200" />
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-4 h-4 text-muted-foreground animate-pulse" />
+                      <span className="text-sm text-muted-foreground">Analyzing symptoms...</span>
                     </div>
                   </div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input */}
           <form onSubmit={handleSendMessage} className="p-4 border-t border-border">
@@ -213,8 +427,10 @@ export const AIAssistant = () => {
               </Button>
             </div>
           </form>
+
         </>
       )}
     </Card>
+    </>
   );
 };

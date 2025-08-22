@@ -1,12 +1,36 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { query, mutation, action, internalAction, internalQuery, internalMutation } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 // ===== USER MANAGEMENT =====
 
 export const getUserProfile = query({
   args: { clerkId: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      clerkId: v.string(),
+      email: v.string(),
+      name: v.string(),
+      avatar: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      dateOfBirth: v.optional(v.string()),
+      emergencyContact: v.optional(v.object({
+        name: v.string(),
+        phone: v.string(),
+        relationship: v.string(),
+      })),
+      address: v.optional(v.object({
+        street: v.string(),
+        city: v.string(),
+        state: v.string(),
+        zipCode: v.string(),
+      })),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     const users = await ctx.db
       .query("users")
@@ -43,6 +67,30 @@ export const createUserProfile = mutation({
       zipCode: v.string(),
     })),
   },
+  returns: v.union(
+    v.id("users"),
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      clerkId: v.string(),
+      email: v.string(),
+      name: v.string(),
+      avatar: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      dateOfBirth: v.optional(v.string()),
+      emergencyContact: v.optional(v.object({
+        name: v.string(),
+        phone: v.string(),
+        relationship: v.string(),
+      })),
+      address: v.optional(v.object({
+        street: v.string(),
+        city: v.string(),
+        state: v.string(),
+        zipCode: v.string(),
+      })),
+    })
+  ),
   handler: async (ctx, args) => {
     // Check if user profile already exists
     const existingUsers = await ctx.db
@@ -80,6 +128,30 @@ export const updateUserProfile = mutation({
       })),
     }),
   },
+  returns: v.union(
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      clerkId: v.string(),
+      email: v.string(),
+      name: v.string(),
+      avatar: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      dateOfBirth: v.optional(v.string()),
+      emergencyContact: v.optional(v.object({
+        name: v.string(),
+        phone: v.string(),
+        relationship: v.string(),
+      })),
+      address: v.optional(v.object({
+        street: v.string(),
+        city: v.string(),
+        state: v.string(),
+        zipCode: v.string(),
+      })),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     return await ctx.db.patch(args.userId, args.updates);
   },
@@ -88,6 +160,10 @@ export const updateUserProfile = mutation({
 // Clean up duplicate user profiles
 export const cleanupDuplicateProfiles = mutation({
   args: {},
+  returns: v.object({
+    cleanedCount: v.number(),
+    message: v.string(),
+  }),
   handler: async (ctx, args) => {
     const allUsers = await ctx.db.query("users").collect();
     const clerkIdGroups = new Map();
@@ -126,6 +202,23 @@ export const getMedicines = query({
     category: v.optional(v.string()),
     search: v.optional(v.string()),
   },
+  returns: v.array(v.object({
+    _id: v.id("medicines"),
+    _creationTime: v.number(),
+    name: v.string(),
+    genericName: v.optional(v.string()),
+    description: v.string(),
+    price: v.number(),
+    category: v.string(),
+    dosage: v.string(),
+    manufacturer: v.string(),
+    imageUrl: v.optional(v.string()),
+    inStock: v.boolean(),
+    prescriptionRequired: v.boolean(),
+    activeIngredients: v.optional(v.array(v.string())),
+    sideEffects: v.optional(v.array(v.string())),
+    instructions: v.optional(v.string()),
+  })),
   handler: async (ctx, args) => {
     let medicines;
     
@@ -153,6 +246,26 @@ export const getMedicines = query({
 
 export const getMedicineById = query({
   args: { medicineId: v.id("medicines") },
+  returns: v.union(
+    v.object({
+      _id: v.id("medicines"),
+      _creationTime: v.number(),
+      name: v.string(),
+      genericName: v.optional(v.string()),
+      description: v.string(),
+      price: v.number(),
+      category: v.string(),
+      dosage: v.string(),
+      manufacturer: v.string(),
+      imageUrl: v.optional(v.string()),
+      inStock: v.boolean(),
+      prescriptionRequired: v.boolean(),
+      activeIngredients: v.optional(v.array(v.string())),
+      sideEffects: v.optional(v.array(v.string())),
+      instructions: v.optional(v.string()),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.medicineId);
   },
@@ -162,6 +275,34 @@ export const getMedicineById = query({
 
 export const getCartItems = query({
   args: { userId: v.id("users") },
+  returns: v.array(v.object({
+    _id: v.id("cartItems"),
+    _creationTime: v.number(),
+    userId: v.id("users"),
+    medicineId: v.id("medicines"),
+    quantity: v.number(),
+    addedAt: v.number(),
+    medicine: v.union(
+      v.object({
+        _id: v.id("medicines"),
+        _creationTime: v.number(),
+        name: v.string(),
+        genericName: v.optional(v.string()),
+        description: v.string(),
+        price: v.number(),
+        category: v.string(),
+        dosage: v.string(),
+        manufacturer: v.string(),
+        imageUrl: v.optional(v.string()),
+        inStock: v.boolean(),
+        prescriptionRequired: v.boolean(),
+        activeIngredients: v.optional(v.array(v.string())),
+        sideEffects: v.optional(v.array(v.string())),
+        instructions: v.optional(v.string()),
+      }),
+      v.null()
+    ),
+  })),
   handler: async (ctx, args) => {
     const cartItems = await ctx.db
       .query("cartItems")
@@ -189,6 +330,7 @@ export const addToCart = mutation({
     medicineId: v.id("medicines"),
     quantity: v.number(),
   },
+  returns: v.any(),
   handler: async (ctx, args) => {
     // Check if item already exists in cart
     const existingItem = await ctx.db
@@ -198,18 +340,20 @@ export const addToCart = mutation({
       .unique();
     
     if (existingItem) {
-      // Update quantity
-      return await ctx.db.patch(existingItem._id, {
+      // Update quantity and return the updated item
+      const updatedItem = await ctx.db.patch(existingItem._id, {
         quantity: existingItem.quantity + args.quantity,
       });
+      return updatedItem;
     } else {
       // Add new item
-      return await ctx.db.insert("cartItems", {
+      const newItemId = await ctx.db.insert("cartItems", {
         userId: args.userId,
         medicineId: args.medicineId,
         quantity: args.quantity,
         addedAt: Date.now(),
       });
+      return newItemId;
     }
   },
 });
@@ -219,9 +363,22 @@ export const updateCartItem = mutation({
     cartItemId: v.id("cartItems"),
     quantity: v.number(),
   },
+  returns: v.union(
+    v.id("cartItems"),
+    v.object({
+      _id: v.id("cartItems"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      medicineId: v.id("medicines"),
+      quantity: v.number(),
+      addedAt: v.number(),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     if (args.quantity <= 0) {
-      return await ctx.db.delete(args.cartItemId);
+      await ctx.db.delete(args.cartItemId);
+      return null;
     }
     return await ctx.db.patch(args.cartItemId, { quantity: args.quantity });
   },
@@ -229,6 +386,7 @@ export const updateCartItem = mutation({
 
 export const removeFromCart = mutation({
   args: { cartItemId: v.id("cartItems") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     return await ctx.db.delete(args.cartItemId);
   },
@@ -532,6 +690,14 @@ export const getConversation = query({
   },
 });
 
+// Internal function to get conversation by ID
+export const getConversationById = internalQuery({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.conversationId);
+  },
+});
+
 export const addMessage = mutation({
   args: {
     conversationId: v.id("conversations"),
@@ -562,6 +728,491 @@ export const addMessage = mutation({
     });
   },
 });
+
+// Internal function to update conversation with AI response
+export const updateConversationWithAIResponse = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    aiResponse: v.object({
+      role: v.literal("assistant"),
+      content: v.string(),
+      timestamp: v.number(),
+      metadata: v.optional(v.object({
+        symptoms: v.optional(v.array(v.string())),
+        severity: v.optional(v.string()),
+        recommendations: v.optional(v.array(v.string())),
+      })),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    
+    const updatedMessages = [...conversation.messages, args.aiResponse];
+    
+    return await ctx.db.patch(args.conversationId, {
+      messages: updatedMessages,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// ===== AI HEALTH ANALYSIS =====
+
+export const analyzeHealthSymptoms = internalAction({
+  args: {
+    symptoms: v.string(),
+    conversationId: v.id("conversations"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Use Perplexity AI for health symptom analysis
+    const structuredResponse = await generatePerplexityHealthResponse(args.symptoms);
+    
+    // Get the current conversation
+    const conversation = await ctx.runQuery(internal.myFunctions.getConversationById, {
+      conversationId: args.conversationId,
+    });
+    
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+    
+    // Add the AI response to the conversation
+    await ctx.runMutation(internal.myFunctions.updateConversationWithAIResponse, {
+      conversationId: args.conversationId,
+      aiResponse: {
+        role: "assistant",
+        content: structuredResponse.content,
+        timestamp: Date.now(),
+        metadata: {
+          symptoms: structuredResponse.symptoms,
+          severity: structuredResponse.severity,
+          recommendations: structuredResponse.recommendations,
+        },
+      },
+    });
+    
+    return null;
+  },
+});
+
+// Public function for users to analyze symptoms
+export const analyzeSymptoms = mutation({
+  args: {
+    symptoms: v.string(),
+    userId: v.id("users"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      // Get or create conversation for the user
+      let conversation = await ctx.db
+        .query("conversations")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .unique();
+      
+      if (!conversation) {
+        const newConversationId = await ctx.db.insert("conversations", {
+          userId: args.userId,
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isActive: true,
+        });
+        
+        // Add user message to new conversation
+        await ctx.db.patch(newConversationId, {
+          messages: [
+            {
+              role: "user",
+              content: args.symptoms,
+              timestamp: Date.now(),
+              metadata: {
+                symptoms: [args.symptoms],
+              },
+            },
+          ],
+          updatedAt: Date.now(),
+        });
+        
+        // Schedule AI analysis
+        await ctx.scheduler.runAfter(0, internal.myFunctions.analyzeHealthSymptoms, {
+          symptoms: args.symptoms,
+          conversationId: newConversationId,
+        });
+      } else {
+        // Add user message to existing conversation
+        await ctx.db.patch(conversation._id, {
+          messages: [
+            ...conversation.messages,
+            {
+              role: "user",
+              content: args.symptoms,
+              timestamp: Date.now(),
+              metadata: {
+                symptoms: [args.symptoms],
+              },
+            },
+          ],
+          updatedAt: Date.now(),
+        });
+        
+        // Schedule AI analysis
+        await ctx.scheduler.runAfter(0, internal.myFunctions.analyzeHealthSymptoms, {
+          symptoms: args.symptoms,
+          conversationId: conversation._id,
+        });
+      }
+      
+      return {
+        success: true,
+        message: "Symptoms submitted for analysis. AI response will be available shortly.",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to analyze symptoms. Please try again.",
+      };
+    }
+  },
+});
+
+// Helper function to generate structured health responses using Perplexity AI
+async function generatePerplexityHealthResponse(symptoms: string) {
+  try {
+    // Call Perplexity AI API for health symptom analysis
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer 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`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-sonar-small-128k-online',
+        messages: [{
+          role: 'user',
+          content: `Analyze these health symptoms: "${symptoms}". Provide a structured response with: 1) Problem summary, 2) Possible causes, 3) Severity level, 4) Immediate steps to take, 5) When to seek medical help, 6) Recommended tests, 7) Recommended specialist. Format as markdown.`
+        }],
+        max_tokens: 1000,
+        temperature: 0.3,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Perplexity AI API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const aiContent = data.choices[0].message.content;
+    
+    // Parse the AI response to extract structured information
+    const structuredResponse = parseAIHealthResponse(aiContent, symptoms);
+    
+    return structuredResponse;
+  } catch (error) {
+    console.error('Error calling Perplexity AI:', error);
+    // Fallback to structured response
+    return generateFallbackHealthResponse(symptoms);
+  }
+}
+
+// Function to parse AI response and extract structured health information
+function parseAIHealthResponse(aiContent: string, originalSymptoms: string) {
+  try {
+    // Extract key information from the AI response
+    const problemMatch = aiContent.match(/## Health Problem Analysis: (.+?)(?:\n|$)/i) || 
+                         aiContent.match(/Problem summary: (.+?)(?:\n|$)/i) ||
+                         aiContent.match(/Problem: (.+?)(?:\n|$)/i);
+    
+    const causesMatch = aiContent.match(/Possible Causes:(.*?)(?:\*\*|$)/is) ||
+                       aiContent.match(/Causes:(.*?)(?:\*\*|$)/is);
+    
+    const severityMatch = aiContent.match(/Severity Level: (.+?)(?:\n|$)/i) ||
+                          aiContent.match(/Severity: (.+?)(?:\n|$)/i);
+    
+    const stepsMatch = aiContent.match(/Immediate Steps to Take:(.*?)(?:\*\*|$)/is) ||
+                      aiContent.match(/Steps:(.*?)(?:\*\*|$)/is);
+    
+    const helpMatch = aiContent.match(/When to Seek Medical Help:(.*?)(?:\*\*|$)/is) ||
+                     aiContent.match(/Seek Help:(.*?)(?:\*\*|$)/is);
+    
+    const testsMatch = aiContent.match(/Recommended Tests:(.*?)(?:\*\*|$)/is) ||
+                      aiContent.match(/Tests:(.*?)(?:\*\*|$)/is);
+    
+    const specialistMatch = aiContent.match(/Recommended Specialist: (.+?)(?:\n|$)/i) ||
+                           aiContent.match(/Specialist: (.+?)(?:\n|$)/i);
+    
+    // Extract and clean the matched content
+    const problem = problemMatch ? problemMatch[1].trim() : originalSymptoms;
+    const causes = causesMatch ? 
+      causesMatch[1].split('\n').filter(line => line.trim().startsWith('•')).map(line => line.replace('•', '').trim()) : 
+      ['Various possible causes'];
+    const severity = severityMatch ? severityMatch[1].trim() : 'Moderate';
+    const steps = stepsMatch ? 
+      stepsMatch[1].split('\n').filter(line => line.trim().startsWith('•')).map(line => line.replace('•', '').trim()) : 
+      ['Consult a healthcare professional'];
+    const help = helpMatch ? 
+      helpMatch[1].split('\n').filter(line => line.trim().startsWith('•')).map(line => line.replace('•', '').trim()) : 
+      ['If symptoms persist or worsen'];
+    const tests = testsMatch ? 
+      testsMatch[1].split('\n').filter(line => line.trim().startsWith('•')).map(line => line.replace('•', '').trim()) : 
+      ['General health assessment'];
+    const specialist = specialistMatch ? specialistMatch[1].trim() : 'General Practitioner';
+    
+    return {
+      content: aiContent,
+      symptoms: [problem],
+      severity: severity,
+      recommendations: [...steps, ...help]
+    };
+  } catch (error) {
+    console.error('Error parsing AI response:', error);
+    // Return fallback if parsing fails
+    return generateFallbackHealthResponse(originalSymptoms);
+  }
+}
+
+// Fallback function for when Perplexity AI is not available
+function generateFallbackHealthResponse(symptoms: string) {
+  const lowerSymptoms = symptoms.toLowerCase();
+  
+  // Common health conditions and their structured responses
+  const healthConditions = {
+    headache: {
+      problem: "Headache",
+      possibleCauses: [
+        "Tension or stress",
+        "Dehydration",
+        "Eye strain",
+        "Sinus pressure",
+        "Caffeine withdrawal",
+        "Lack of sleep"
+      ],
+      severity: "Moderate",
+      immediateSteps: [
+        "Rest in a quiet, dark room",
+        "Stay hydrated with water",
+        "Apply cold or warm compress to forehead",
+        "Practice deep breathing exercises",
+        "Take over-the-counter pain relievers if needed"
+      ],
+      whenToSeekHelp: [
+        "Severe, sudden headache",
+        "Headache with fever and stiff neck",
+        "Headache after head injury",
+        "Headache with confusion or loss of consciousness"
+      ],
+      recommendedTests: ["Blood pressure check", "Eye examination"],
+      specialist: "Neurologist or General Practitioner"
+    },
+    fever: {
+      problem: "Fever",
+      possibleCauses: [
+        "Viral or bacterial infection",
+        "Inflammatory conditions",
+        "Heat exhaustion",
+        "Medication side effects",
+        "Autoimmune disorders"
+      ],
+      severity: "Moderate to High",
+      immediateSteps: [
+        "Rest and stay hydrated",
+        "Take acetaminophen or ibuprofen",
+        "Use cool compresses",
+        "Wear light clothing",
+        "Monitor temperature regularly"
+      ],
+      whenToSeekHelp: [
+        "Temperature above 103°F (39.4°C)",
+        "Fever lasting more than 3 days",
+        "Fever with severe symptoms",
+        "Fever in infants under 3 months"
+      ],
+      recommendedTests: ["Complete blood count", "Urine analysis", "Chest X-ray if needed"],
+      specialist: "General Practitioner or Infectious Disease Specialist"
+    },
+    cough: {
+      problem: "Cough",
+      possibleCauses: [
+        "Upper respiratory infection",
+        "Allergies",
+        "Post-nasal drip",
+        "Acid reflux",
+        "Asthma",
+        "Smoking or environmental irritants"
+      ],
+      severity: "Mild to Moderate",
+      immediateSteps: [
+        "Stay hydrated with warm fluids",
+        "Use honey for soothing (adults only)",
+        "Use a humidifier",
+        "Avoid irritants and smoking",
+        "Rest your voice"
+      ],
+      whenToSeekHelp: [
+        "Cough lasting more than 2 weeks",
+        "Cough with blood or colored mucus",
+        "Cough with chest pain or difficulty breathing",
+        "Cough with fever"
+      ],
+      recommendedTests: ["Chest X-ray", "Spirometry", "Allergy testing"],
+      specialist: "Pulmonologist or General Practitioner"
+    },
+    fatigue: {
+      problem: "Fatigue",
+      possibleCauses: [
+        "Lack of sleep",
+        "Stress or anxiety",
+        "Poor nutrition",
+        "Anemia",
+        "Thyroid disorders",
+        "Chronic conditions"
+      ],
+      severity: "Mild to Moderate",
+      immediateSteps: [
+        "Ensure 7-9 hours of quality sleep",
+        "Maintain regular sleep schedule",
+        "Exercise regularly (moderate intensity)",
+        "Eat balanced meals",
+        "Manage stress through relaxation techniques"
+      ],
+      whenToSeekHelp: [
+        "Fatigue lasting more than 2 weeks",
+        "Fatigue with other concerning symptoms",
+        "Fatigue affecting daily activities",
+        "Fatigue with weight changes"
+      ],
+      recommendedTests: ["Complete blood count", "Thyroid function tests", "Vitamin D levels"],
+      specialist: "General Practitioner or Endocrinologist"
+    },
+    nausea: {
+      problem: "Nausea",
+      possibleCauses: [
+        "Gastroenteritis",
+        "Food poisoning",
+        "Motion sickness",
+        "Pregnancy",
+        "Medication side effects",
+        "Anxiety or stress"
+      ],
+      severity: "Mild to Moderate",
+      immediateSteps: [
+        "Rest and avoid sudden movements",
+        "Stay hydrated with small sips of clear fluids",
+        "Eat bland foods (BRAT diet: bananas, rice, applesauce, toast)",
+        "Avoid strong odors and greasy foods",
+        "Practice deep breathing exercises"
+      ],
+      whenToSeekHelp: [
+        "Severe or persistent nausea",
+        "Nausea with severe abdominal pain",
+        "Nausea with vomiting blood",
+        "Nausea with signs of dehydration"
+      ],
+      recommendedTests: ["Blood tests", "Stool analysis", "Abdominal ultrasound if needed"],
+      specialist: "Gastroenterologist or General Practitioner"
+    },
+    chestPain: {
+      problem: "Chest Pain",
+      possibleCauses: [
+        "Angina or heart disease",
+        "Musculoskeletal issues",
+        "Gastroesophageal reflux disease (GERD)",
+        "Anxiety or panic attacks",
+        "Respiratory conditions",
+        "Costochondritis"
+      ],
+      severity: "High - Seek Immediate Medical Attention",
+      immediateSteps: [
+        "Stop any physical activity immediately",
+        "Sit or lie down in a comfortable position",
+        "Call emergency services if severe",
+        "Take prescribed medications if available",
+        "Stay calm and breathe slowly"
+      ],
+      whenToSeekHelp: [
+        "Severe, crushing chest pain",
+        "Pain radiating to arm, jaw, or back",
+        "Chest pain with shortness of breath",
+        "Chest pain with sweating or nausea",
+        "Chest pain lasting more than 5 minutes"
+      ],
+      recommendedTests: ["Electrocardiogram (ECG)", "Blood tests", "Chest X-ray", "Stress test"],
+      specialist: "Cardiologist or Emergency Medicine"
+    },
+    dizziness: {
+      problem: "Dizziness",
+      possibleCauses: [
+        "Inner ear problems",
+        "Low blood pressure",
+        "Dehydration",
+        "Anxiety or stress",
+        "Medication side effects",
+        "Neurological conditions"
+      ],
+      severity: "Moderate",
+      immediateSteps: [
+        "Sit or lie down immediately",
+        "Stay hydrated with water",
+        "Avoid sudden movements",
+        "Focus on a fixed point",
+        "Practice deep breathing"
+      ],
+      whenToSeekHelp: [
+        "Severe or persistent dizziness",
+        "Dizziness with chest pain",
+        "Dizziness with vision changes",
+        "Dizziness with difficulty walking",
+        "Dizziness with severe headache"
+      ],
+      recommendedTests: ["Blood pressure check", "Blood tests", "Neurological examination", "Hearing tests"],
+      specialist: "Neurologist or Otolaryngologist"
+    }
+  };
+  
+  // Find matching condition or provide general guidance
+  let response = healthConditions.headache; // Default response
+  
+  for (const [condition, details] of Object.entries(healthConditions)) {
+    if (lowerSymptoms.includes(condition)) {
+      response = details;
+      break;
+    }
+  }
+  
+  // Generate structured content
+  const content = `## Health Problem Analysis: ${response.problem}
+
+**Possible Causes:**
+${response.possibleCauses.map(cause => `• ${cause}`).join('\n')}
+
+**Severity Level:** ${response.severity}
+
+**Immediate Steps to Take:**
+${response.immediateSteps.map(step => `• ${step}`).join('\n')}
+
+**When to Seek Medical Help:**
+${response.whenToSeekHelp.map(warning => `• ${warning}`).join('\n')}
+
+**Recommended Tests:**
+${response.recommendedTests.map(test => `• ${test}`).join('\n')}
+
+**Recommended Specialist:** ${response.specialist}
+
+*Note: This analysis is for informational purposes only. Always consult with a healthcare professional for proper diagnosis and treatment.*`;
+
+  return {
+    content,
+    symptoms: [response.problem],
+    severity: response.severity,
+    recommendations: [...response.immediateSteps, ...response.whenToSeekHelp]
+  };
+}
 
 // ===== APPOINTMENTS =====
 
@@ -629,5 +1280,42 @@ export const getFileUrl = query({
   args: { storageId: v.string() },
   handler: async (ctx, args) => {
     return await ctx.storage.getUrl(args.storageId);
+  },
+});
+
+// ===== DEMO FUNCTIONS (for the main page) =====
+
+export const viewer = query({
+  args: {},
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    // This is a demo function that returns a placeholder viewer name
+    // In a real app, you'd get the actual authenticated user
+    return "Demo User";
+  },
+});
+
+export const listNumbers = query({
+  args: { count: v.number() },
+  returns: v.array(v.number()),
+  handler: async (ctx, args) => {
+    // This is a demo function that returns random numbers
+    // In a real app, you'd query your actual data
+    const numbers = [];
+    for (let i = 0; i < args.count; i++) {
+      numbers.push(Math.floor(Math.random() * 100));
+    }
+    return numbers;
+  },
+});
+
+export const addNumber = mutation({
+  args: { value: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // This is a demo function that just logs the number
+    // In a real app, you'd save this to your database
+    console.log(`Adding number: ${args.value}`);
+    return null;
   },
 });

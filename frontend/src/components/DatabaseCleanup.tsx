@@ -1,12 +1,12 @@
 import { useMutation } from "convex/react";
-import { api } from "../../../backend/convex/_generated/api";
+
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 export const DatabaseCleanup = () => {
   const [isCleaning, setIsCleaning] = useState(false);
   const [result, setResult] = useState<string>("");
-  const cleanupDuplicateProfiles = useMutation(api.myFunctions.cleanupDuplicateProfiles);
+  const cleanupDuplicateProfiles = useMutation("cleanupDuplicateProfiles");
 
   const handleCleanup = async () => {
     setIsCleaning(true);

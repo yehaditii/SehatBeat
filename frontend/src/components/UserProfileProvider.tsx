@@ -2,13 +2,13 @@ import { useEffect } from "react";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { useCurrentUser } from "@/hooks/useConvex";
 import { useMutation } from "convex/react";
-import { api } from "../../../backend/convex/_generated/api";
+
 
 export const UserProfileProvider = ({ children }: { children: React.ReactNode }) => {
   const { isSignedIn, userId } = useAuth();
   const { user: clerkUser } = useUser();
   const convexUser = useCurrentUser();
-  const createUserProfile = useMutation(api.myFunctions.createUserProfile);
+  const createUserProfile = useMutation("createUserProfile");
 
   useEffect(() => {
     if (isSignedIn && userId && clerkUser && convexUser === null) {

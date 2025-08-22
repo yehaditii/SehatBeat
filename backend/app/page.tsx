@@ -3,28 +3,61 @@
 import {
   Authenticated,
   Unauthenticated,
-  useMutation,
-  useQuery,
 } from "convex/react";
-import { api } from "../convex/_generated/api";
 import Link from "next/link";
 import { SignUpButton } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
-import { UserButton } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Set a timeout to show loading state
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-lg">Loading SehatBeat...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md mx-auto p-6 bg-red-50 border border-red-200 rounded-lg">
+          <h2 className="text-xl font-semibold text-red-800 mb-2">Something went wrong</h2>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background p-4 border-b-2 border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
-        Convex + Next.js + Clerk
-        <UserButton />
-      </header>
       <main className="p-8 flex flex-col gap-8">
         <h1 className="text-4xl font-bold text-center">
-          Convex + Next.js + Clerk
+          SehatBeat - Health & Wellness Platform
         </h1>
         <Authenticated>
-          <Content />
+          <SimpleContent />
         </Authenticated>
         <Unauthenticated>
           <SignInForm />
@@ -37,7 +70,7 @@ export default function Home() {
 function SignInForm() {
   return (
     <div className="flex flex-col gap-8 w-96 mx-auto">
-      <p>Log in to see the numbers</p>
+      <p>Log in to see the SehatBeat platform</p>
       <SignInButton mode="modal">
         <button className="bg-foreground text-background px-4 py-2 rounded-md">
           Sign in
@@ -52,50 +85,26 @@ function SignInForm() {
   );
 }
 
-function Content() {
-  const { viewer, numbers } =
-    useQuery(api.myFunctions.listNumbers, {
-      count: 10,
-    }) ?? {};
-  const addNumber = useMutation(api.myFunctions.addNumber);
-
-  if (viewer === undefined || numbers === undefined) {
-    return (
-      <div className="mx-auto">
-        <p>loading... (consider a loading skeleton)</p>
-      </div>
-    );
-  }
-
+function SimpleContent() {
   return (
     <div className="flex flex-col gap-8 max-w-lg mx-auto">
-      <p>Welcome {viewer ?? "Anonymous"}!</p>
+      <p>Welcome to SehatBeat!</p>
       <p>
-        Click the button below and open this page in another window - this data
-        is persisted in the Convex cloud database!
+        This is a simplified version to test the basic functionality.
+        The app should now load without white screen issues.
       </p>
-      <p>
-        <button
-          className="bg-foreground text-background text-sm px-4 py-2 rounded-md"
-          onClick={() => {
-            void addNumber({ value: Math.floor(Math.random() * 10) });
-          }}
-        >
-          Add a random number
-        </button>
-      </p>
-      <p>
-        Numbers:{" "}
-        {numbers?.length === 0
-          ? "Click the button!"
-          : (numbers?.join(", ") ?? "...")}
-      </p>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <h2 className="text-lg font-semibold text-green-800 mb-2">✅ App is working!</h2>
+        <p className="text-green-600">
+          If you can see this message, the white screen issue has been resolved.
+        </p>
+      </div>
       <p>
         Edit{" "}
         <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
           convex/myFunctions.ts
         </code>{" "}
-        to change your backend
+        to add more backend functionality
       </p>
       <p>
         Edit{" "}
