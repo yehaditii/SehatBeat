@@ -916,6 +916,35 @@ export const analyzeSymptoms = mutation({
   }),
   handler: async (ctx, args) => {
     try {
+      // Check if input is health-related
+      const healthKeywords = [
+        'pain', 'ache', 'hurt', 'sore', 'fever', 'cough', 'cold', 'flu', 'headache', 'migraine',
+        'stomach', 'nausea', 'vomiting', 'diarrhea', 'constipation', 'indigestion', 'heartburn',
+        'rash', 'itch', 'skin', 'burn', 'cut', 'bruise', 'swelling', 'inflammation',
+        'dizzy', 'dizziness', 'faint', 'weakness', 'fatigue', 'tired', 'exhausted',
+        'breathing', 'shortness of breath', 'chest pain', 'heart', 'blood pressure',
+        'joint', 'muscle', 'back', 'neck', 'shoulder', 'knee', 'hip', 'arm', 'leg',
+        'vision', 'eye', 'ear', 'nose', 'throat', 'mouth', 'tooth', 'dental',
+        'cancer', 'tumor', 'lump', 'bump', 'growth', 'bleeding', 'infection',
+        'allergy', 'asthma', 'diabetes', 'hypertension', 'arthritis', 'depression', 'anxiety'
+      ];
+      
+      const lowerSymptoms = args.symptoms.toLowerCase();
+      const isHealthRelated = healthKeywords.some(keyword => 
+        lowerSymptoms.includes(keyword)
+      );
+      
+      if (!isHealthRelated) {
+        return {
+          success: false,
+          message: `I'm a specialized health and medical symptom analyzer. I can help you with health-related topics like symptoms, medical conditions, injuries, and general wellness. 
+
+What you asked about: "${args.symptoms}"
+
+Please describe any health symptoms, medical concerns, or wellness questions you have. I'm here to provide health-related guidance and recommendations.`
+        };
+      }
+      
       // Get or create conversation for the user
       let conversation = await ctx.db
         .query("conversations")

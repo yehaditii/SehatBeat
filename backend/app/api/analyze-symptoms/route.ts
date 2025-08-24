@@ -11,6 +11,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if input is health-related
+    const healthKeywords = [
+      'pain', 'ache', 'hurt', 'sore', 'fever', 'cough', 'cold', 'flu', 'headache', 'migraine',
+      'stomach', 'nausea', 'vomiting', 'diarrhea', 'constipation', 'indigestion', 'heartburn',
+      'rash', 'itch', 'skin', 'burn', 'cut', 'bruise', 'swelling', 'inflammation',
+      'dizzy', 'dizziness', 'faint', 'weakness', 'fatigue', 'tired', 'exhausted',
+      'breathing', 'shortness of breath', 'chest pain', 'heart', 'blood pressure',
+      'joint', 'muscle', 'back', 'neck', 'shoulder', 'knee', 'hip', 'arm', 'leg',
+      'vision', 'eye', 'ear', 'nose', 'throat', 'mouth', 'tooth', 'dental',
+      'cancer', 'tumor', 'lump', 'bump', 'growth', 'bleeding', 'infection',
+      'allergy', 'asthma', 'diabetes', 'hypertension', 'arthritis', 'depression', 'anxiety'
+    ];
+    
+    const lowerSymptoms = symptoms.toLowerCase();
+    const isHealthRelated = healthKeywords.some(keyword => 
+      lowerSymptoms.includes(keyword)
+    );
+    
+    if (!isHealthRelated) {
+      return NextResponse.json({
+        analysis: `I'm a specialized health and medical symptom analyzer. I can help you with health-related topics like symptoms, medical conditions, injuries, and general wellness. 
+
+What you asked about: "${symptoms}"
+
+Please describe any health symptoms, medical concerns, or wellness questions you have. I'm here to provide health-related guidance and recommendations.`,
+        severity: "Not Applicable",
+        recommendations: [
+          "Describe health symptoms or medical concerns",
+          "Ask about specific health conditions",
+          "Inquire about wellness and prevention",
+          "Seek guidance for injuries or pain"
+        ]
+      });
+    }
+
     // Perplexity AI API integration
     const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
     

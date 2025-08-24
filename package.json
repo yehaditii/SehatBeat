@@ -1,3 +1,5 @@
 {
-  "dependencies": {}
+  "dependencies": {
+    "convex": "^1.10.0"
+  }
 }

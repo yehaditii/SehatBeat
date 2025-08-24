@@ -57,12 +57,7 @@ export const AIAssistant = () => {
       content: "To get started, simply describe what you're experiencing in the input field below. I'll analyze your symptoms and provide personalized recommendations based on the information you share.",
       timestamp: new Date()
     },
-    {
-      id: '4',
-      type: 'bot',
-      content: "💡 **Note**: I'm currently running in local mode for demonstration purposes. For full AI-powered analysis with Perplexity AI, please configure authentication and API keys.",
-      timestamp: new Date()
-    }
+
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -221,7 +216,24 @@ Your symptoms are being analyzed by our AI. The response will appear shortly.`,
               description: "Your symptoms are being analyzed by Perplexity AI",
             });
           } else {
-            throw new Error(result.message);
+            // Remove the temporary analysis message
+            setMessages(prev => prev.filter(msg => msg.id !== analysisMessage.id));
+            
+            // Handle non-health-related response
+            const nonHealthMessage: Message = {
+              id: (Date.now() + 2).toString(),
+              type: 'bot',
+              content: result.message,
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, nonHealthMessage]);
+            
+            toast({
+              title: "Not Health-Related",
+              description: "Please ask health-related questions",
+            });
+            
+            return; // Don't proceed with AI analysis
           }
         } catch (convexError) {
           console.error('Convex Error:', convexError);
@@ -316,6 +328,47 @@ This is general advice only. Please consult a healthcare professional for proper
   }> => {
     const lowerSymptoms = symptoms.toLowerCase();
     
+    // Check if input is health-related
+    const healthKeywords = [
+      'pain', 'ache', 'hurt', 'sore', 'fever', 'cough', 'cold', 'flu', 'headache', 'migraine',
+      'stomach', 'nausea', 'vomiting', 'diarrhea', 'constipation', 'indigestion', 'heartburn',
+      'rash', 'itch', 'skin', 'burn', 'cut', 'bruise', 'swelling', 'inflammation',
+      'dizzy', 'dizziness', 'faint', 'weakness', 'fatigue', 'tired', 'exhausted',
+      'breathing', 'shortness of breath', 'chest pain', 'heart', 'blood pressure',
+      'joint', 'muscle', 'back', 'neck', 'shoulder', 'knee', 'hip', 'arm', 'leg',
+      'vision', 'eye', 'ear', 'nose', 'throat', 'mouth', 'tooth', 'dental',
+      'cancer', 'tumor', 'lump', 'bump', 'growth', 'bleeding', 'infection',
+      'allergy', 'asthma', 'diabetes', 'hypertension', 'arthritis', 'depression', 'anxiety'
+    ];
+    
+    const isHealthRelated = healthKeywords.some(keyword => 
+      lowerSymptoms.includes(keyword)
+    );
+    
+    // If not health-related, return a polite redirect message
+    if (!isHealthRelated) {
+      return {
+        content: `🤖 **SehatBeat AI Assistant**
+
+I'm a specialized health and medical symptom analyzer. I can help you with:
+
+**Health-related topics I can assist with:**
+• **Symptoms**: pain, fever, cough, headache, stomach issues, etc.
+• **Medical conditions**: allergies, infections, chronic conditions
+• **Injuries**: cuts, burns, sprains, fractures
+• **General health**: nutrition, exercise, wellness
+
+**What you asked about:** "${symptoms}"
+
+**How I can help:** Please describe any health symptoms, medical concerns, or wellness questions you have. I'm here to provide health-related guidance and recommendations.
+
+*Note: I'm designed specifically for health and medical topics. For other questions, please use appropriate resources.*`,
+        symptoms: [],
+        severity: "Not Applicable",
+        recommendations: []
+      };
+    }
+    
     // Common health conditions and their structured responses
     const healthConditions: Record<string, any> = {
       cancer: {
@@ -347,28 +400,33 @@ This is general advice only. Please consult a healthcare professional for proper
       headache: {
         problem: "Headache",
         possibleCauses: [
-          "Tension or stress",
-          "Dehydration",
-          "Eye strain",
-          "Sinus pressure",
-          "Caffeine withdrawal",
-          "Lack of sleep"
+          "Tension or stress-related muscle tightness",
+          "Dehydration or hunger",
+          "Eye strain from screen time or reading",
+          "Sinus pressure or allergies",
+          "Caffeine withdrawal or excess",
+          "Poor sleep quality or sleep apnea",
+          "Neck or shoulder muscle tension",
+          "Bright lights or loud noises"
         ],
-        severity: "Moderate",
+        severity: "Mild to Moderate",
         immediateSteps: [
-          "Rest in a quiet, dark room",
-          "Stay hydrated with water",
-          "Apply cold or warm compress to forehead",
-          "Practice deep breathing exercises",
-          "Take over-the-counter pain relievers if needed"
+          "Rest in a quiet, dark, cool room",
+          "Stay hydrated with water or electrolyte drinks",
+          "Apply cold compress to forehead or warm compress to neck",
+          "Practice progressive muscle relaxation",
+          "Take over-the-counter pain relievers if appropriate",
+          "Gentle neck and shoulder stretches"
         ],
         whenToSeekHelp: [
-          "Severe, sudden headache",
-          "Headache with fever and stiff neck",
-          "Headache after head injury",
-          "Headache with confusion or loss of consciousness"
+          "Severe, sudden 'thunderclap' headache",
+          "Headache with fever, stiff neck, or rash",
+          "Headache after head injury or fall",
+          "Headache with confusion, weakness, or vision changes",
+          "Headache that wakes you from sleep",
+          "Headache lasting more than 24 hours"
         ],
-        recommendedTests: ["Blood pressure check", "Eye examination"],
+        recommendedTests: ["Blood pressure check", "Eye examination", "Neurological evaluation if severe"],
         specialist: "Neurologist or General Practitioner"
       },
       fever: {
@@ -427,28 +485,32 @@ This is general advice only. Please consult a healthcare professional for proper
       fatigue: {
         problem: "Fatigue",
         possibleCauses: [
-          "Lack of sleep",
-          "Stress or anxiety",
-          "Poor nutrition",
-          "Anemia",
-          "Thyroid disorders",
-          "Chronic conditions"
+          "Lack of sleep or poor sleep quality",
+          "Stress, anxiety, or depression",
+          "Poor nutrition or dehydration",
+          "Anemia or iron deficiency",
+          "Thyroid disorders (hypothyroidism)",
+          "Chronic conditions or infections",
+          "Medication side effects",
+          "Lack of physical activity"
         ],
         severity: "Mild to Moderate",
         immediateSteps: [
-          "Ensure 7-9 hours of quality sleep",
-          "Maintain regular sleep schedule",
-          "Exercise regularly (moderate intensity)",
-          "Eat balanced meals",
-          "Manage stress through relaxation techniques"
+          "Prioritize 7-9 hours of quality sleep",
+          "Establish consistent sleep-wake schedule",
+          "Stay hydrated throughout the day",
+          "Eat nutrient-rich meals with protein",
+          "Take short breaks during work",
+          "Practice stress-reduction techniques"
         ],
         whenToSeekHelp: [
           "Fatigue lasting more than 2 weeks",
-          "Fatigue with other concerning symptoms",
-          "Fatigue affecting daily activities",
-          "Fatigue with weight changes"
+          "Fatigue with unexplained weight loss",
+          "Fatigue with fever or night sweats",
+          "Fatigue affecting work or relationships",
+          "Fatigue with muscle weakness or pain"
         ],
-        recommendedTests: ["Complete blood count", "Thyroid function tests", "Vitamin D levels"],
+        recommendedTests: ["Complete blood count", "Thyroid function tests", "Vitamin D and B12 levels", "Sleep study if needed"],
         specialist: "General Practitioner or Endocrinologist"
       },
       nausea: {
@@ -508,29 +570,89 @@ This is general advice only. Please consult a healthcare professional for proper
       heart: {
         problem: "Heart-Related Symptoms",
         possibleCauses: [
-          "Coronary artery disease",
-          "Heart attack",
-          "Arrhythmias",
-          "Heart failure",
-          "Valvular heart disease"
+          "Coronary artery disease or atherosclerosis",
+          "Heart attack (myocardial infarction)",
+          "Arrhythmias or irregular heartbeats",
+          "Heart failure or cardiomyopathy",
+          "Valvular heart disease",
+          "Pericarditis or inflammation"
         ],
         severity: "EMERGENCY - Life-Threatening Risk",
         immediateSteps: [
           "**Seek emergency medical care immediately**",
-          "Call emergency services",
-          "Do not delay seeking help",
-          "Stay calm and rest",
-          "Note all symptoms and their timeline"
+          "Call emergency services (911) without delay",
+          "Do not drive yourself to the hospital",
+          "Stay calm and rest in a comfortable position",
+          "Note exact symptoms, timing, and any triggers"
         ],
         whenToSeekHelp: [
           "**Immediately** - heart symptoms can be life-threatening",
-          "Chest pain or pressure",
-          "Shortness of breath",
-          "Irregular heartbeat",
-          "Dizziness or fainting"
+          "Chest pain, pressure, or tightness",
+          "Pain radiating to arm, jaw, neck, or back",
+          "Shortness of breath or difficulty breathing",
+          "Irregular heartbeat or palpitations",
+          "Dizziness, lightheadedness, or fainting"
         ],
-        recommendedTests: ["Emergency evaluation", "ECG/EKG", "Cardiac enzymes", "Echocardiogram"],
+        recommendedTests: ["Emergency evaluation", "ECG/EKG", "Cardiac enzymes", "Echocardiogram", "Stress test"],
         specialist: "Emergency care first, then Cardiologist"
+      },
+      back: {
+        problem: "Back Pain",
+        possibleCauses: [
+          "Muscle strain or sprain",
+          "Poor posture or ergonomics",
+          "Herniated disc or spinal issues",
+          "Arthritis or degenerative changes",
+          "Osteoporosis or bone problems",
+          "Kidney or organ issues"
+        ],
+        severity: "Mild to Moderate",
+        immediateSteps: [
+          "Rest in a comfortable position",
+          "Apply ice for first 48 hours, then heat",
+          "Gentle stretching and range of motion exercises",
+          "Maintain good posture",
+          "Use proper lifting techniques",
+          "Consider over-the-counter pain relievers"
+        ],
+        whenToSeekHelp: [
+          "Severe or worsening pain",
+          "Pain with numbness or tingling in legs",
+          "Pain with bowel or bladder problems",
+          "Pain after injury or accident",
+          "Pain lasting more than 2 weeks"
+        ],
+        recommendedTests: ["Physical examination", "X-rays", "MRI if needed", "Blood tests for inflammation"],
+        specialist: "Orthopedist, Physical Therapist, or General Practitioner"
+      },
+      joint: {
+        problem: "Joint Pain or Stiffness",
+        possibleCauses: [
+          "Arthritis (osteoarthritis or rheumatoid)",
+          "Joint injury or overuse",
+          "Bursitis or tendinitis",
+          "Gout or crystal deposits",
+          "Lupus or autoimmune conditions",
+          "Infection or inflammation"
+        ],
+        severity: "Mild to Moderate",
+        immediateSteps: [
+          "Rest the affected joint",
+          "Apply ice to reduce swelling",
+          "Gentle range of motion exercises",
+          "Use supportive devices if needed",
+          "Maintain healthy weight",
+          "Consider anti-inflammatory medications"
+        ],
+        whenToSeekHelp: [
+          "Severe joint pain or swelling",
+          "Joint pain with fever or redness",
+          "Joint pain affecting daily activities",
+          "Joint pain with other symptoms",
+          "Pain not improving with rest"
+        ],
+        recommendedTests: ["Joint examination", "X-rays", "Blood tests for inflammation", "Joint fluid analysis if needed"],
+        specialist: "Rheumatologist, Orthopedist, or General Practitioner"
       }
     };
 
@@ -543,6 +665,15 @@ This is general advice only. Please consult a healthcare professional for proper
       if (lowerSymptoms.includes(symptom)) {
         condition = healthConditions[symptom] || healthConditions['cancer']; // fallback to cancer for serious symptoms
         break;
+      }
+    }
+    
+    // Check for specific body part symptoms
+    if (!condition) {
+      if (lowerSymptoms.includes('back') || lowerSymptoms.includes('spine')) {
+        condition = healthConditions['back'];
+      } else if (lowerSymptoms.includes('joint') || lowerSymptoms.includes('knee') || lowerSymptoms.includes('hip') || lowerSymptoms.includes('shoulder')) {
+        condition = healthConditions['joint'];
       }
     }
     
@@ -583,7 +714,109 @@ ${condition.whenToSeekHelp.map(symptom => `• ${symptom}`).join('\n')}
         recommendations: [...condition.immediateSteps, ...condition.whenToSeekHelp]
       };
     } else {
-      // Generic response for unknown symptoms
+      // Generate varied responses based on symptom patterns
+      const symptomPatterns = {
+        pain: {
+          severity: "MODERATE - Monitor Closely",
+          immediateSteps: [
+            "Apply appropriate pain relief methods (ice/heat)",
+            "Rest the affected area",
+            "Take over-the-counter pain relievers if appropriate",
+            "Monitor pain intensity and duration",
+            "Avoid activities that worsen the pain"
+          ],
+          whenToSeekHelp: [
+            "Pain that is severe or worsening",
+            "Pain lasting more than 24-48 hours",
+            "Pain with swelling, redness, or fever",
+            "Pain affecting daily activities"
+          ],
+          specialist: "General Practitioner or appropriate specialist based on location"
+        },
+        rash: {
+          severity: "MILD to MODERATE",
+          immediateSteps: [
+            "Keep the area clean and dry",
+            "Avoid scratching or irritating the rash",
+            "Apply cool compresses if itchy",
+            "Use gentle, fragrance-free skincare products",
+            "Monitor for signs of infection"
+          ],
+          whenToSeekHelp: [
+            "Rash spreading rapidly",
+            "Rash with fever or other symptoms",
+            "Rash that is painful or blistered",
+            "Rash not improving after 2-3 days"
+          ],
+          specialist: "Dermatologist or General Practitioner"
+        },
+        digestive: {
+          severity: "MILD to MODERATE",
+          immediateSteps: [
+            "Stay hydrated with clear fluids",
+            "Eat bland, easy-to-digest foods",
+            "Avoid spicy, fatty, or irritating foods",
+            "Rest and avoid strenuous activity",
+            "Monitor for dehydration signs"
+          ],
+          whenToSeekHelp: [
+            "Severe or persistent symptoms",
+            "Blood in stool or vomit",
+            "Signs of dehydration",
+            "Symptoms lasting more than 2-3 days"
+          ],
+          specialist: "Gastroenterologist or General Practitioner"
+        },
+        respiratory: {
+          severity: "MODERATE - Monitor Breathing",
+          immediateSteps: [
+            "Rest in a comfortable position",
+            "Stay hydrated with warm fluids",
+            "Use a humidifier if available",
+            "Avoid smoke and strong odors",
+            "Practice deep breathing exercises"
+          ],
+          whenToSeekHelp: [
+            "Difficulty breathing or shortness of breath",
+            "Chest pain or tightness",
+            "Blue lips or fingertips",
+            "Symptoms worsening rapidly"
+          ],
+          specialist: "Pulmonologist or General Practitioner"
+        },
+        neurological: {
+          severity: "MODERATE to HIGH",
+          immediateSteps: [
+            "Rest in a safe, quiet environment",
+            "Avoid driving or operating machinery",
+            "Stay hydrated and eat regular meals",
+            "Monitor symptoms closely",
+            "Have someone stay with you if possible"
+          ],
+          whenToSeekHelp: [
+            "Severe or sudden onset symptoms",
+            "Loss of consciousness or confusion",
+            "Severe headache or vision changes",
+            "Weakness or numbness on one side"
+          ],
+          specialist: "Neurologist or General Practitioner"
+        }
+      };
+
+      // Determine the most appropriate pattern based on symptoms
+      let selectedPattern = symptomPatterns.digestive; // default
+      if (lowerSymptoms.includes('pain') || lowerSymptoms.includes('ache') || lowerSymptoms.includes('sore')) {
+        selectedPattern = symptomPatterns.pain;
+      } else if (lowerSymptoms.includes('rash') || lowerSymptoms.includes('itch') || lowerSymptoms.includes('skin')) {
+        selectedPattern = symptomPatterns.rash;
+      } else if (lowerSymptoms.includes('stomach') || lowerSymptoms.includes('nausea') || lowerSymptoms.includes('diarrhea') || lowerSymptoms.includes('constipation')) {
+        selectedPattern = symptomPatterns.digestive;
+      } else if (lowerSymptoms.includes('cough') || lowerSymptoms.includes('breathing') || lowerSymptoms.includes('chest') || lowerSymptoms.includes('throat')) {
+        selectedPattern = symptomPatterns.respiratory;
+      } else if (lowerSymptoms.includes('dizzy') || lowerSymptoms.includes('headache') || lowerSymptoms.includes('numb') || lowerSymptoms.includes('tingling')) {
+        selectedPattern = symptomPatterns.neurological;
+      }
+
       return {
         content: `🤖 **AI Analysis Complete!**
 
@@ -591,35 +824,23 @@ ${condition.whenToSeekHelp.map(symptom => `• ${symptom}`).join('\n')}
 
 **Symptoms Reported:** ${symptoms}
 
-**Severity Level:** MODERATE - Requires Professional Evaluation
+**Severity Level:** ${selectedPattern.severity}
 
 **Immediate Steps to Take:**
-• **Seek immediate medical attention** - this symptom requires professional evaluation
-• Do not self-diagnose or self-treat
-• Contact your healthcare provider or visit urgent care
-• Document your symptoms and any related factors
-• Bring a list of current medications and medical history
+${selectedPattern.immediateSteps.map(step => `• ${step}`).join('\n')}
 
 **When to Seek Medical Help:**
-• **Immediately** - this symptom requires professional medical assessment
-• Do not wait for symptoms to worsen
-• Emergency care if symptoms are severe or life-threatening
+${selectedPattern.whenToSeekHelp.map(symptom => `• ${symptom}`).join('\n')}
 
-**Recommended Tests:** Professional medical evaluation required
-**Recommended Specialist:** General Practitioner (start here) or appropriate specialist based on symptoms
+**Recommended Tests:** Professional medical evaluation based on symptoms
+**Recommended Specialist:** ${selectedPattern.specialist}
 
-**Important Note:** This is a serious symptom that requires immediate professional medical attention. Do not rely on online information for diagnosis or treatment.
+**Important Note:** While these steps may help manage symptoms, professional medical evaluation is recommended for proper diagnosis and treatment.
 
 *This analysis was provided by SehatBeat AI. Always consult healthcare professionals for medical decisions.*`,
         symptoms: [symptoms],
-        severity: "MODERATE - Requires Professional Evaluation",
-        recommendations: [
-          "Seek immediate medical attention",
-          "Do not self-diagnose or self-treat", 
-          "Contact healthcare provider",
-          "Document symptoms",
-          "Bring medical history"
-        ]
+        severity: selectedPattern.severity,
+        recommendations: [...selectedPattern.immediateSteps, ...selectedPattern.whenToSeekHelp]
       };
     }
   };

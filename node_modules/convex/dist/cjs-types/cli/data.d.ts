@@ -1,0 +1,14 @@
+import { Command } from "@commander-js/extra-typings";
+export declare const data: Command<[string | undefined], {
+    limit: number;
+    order: "asc" | "desc";
+    component?: string | undefined;
+} & {
+    envFile?: string | undefined;
+    url?: string | undefined;
+    adminKey?: string | undefined;
+    prod?: boolean | undefined;
+    previewName?: string | undefined;
+    deploymentName?: string | undefined;
+}>;
+//# sourceMappingURL=data.d.ts.map

@@ -1,0 +1,37 @@
+import { Command } from "@commander-js/extra-typings";
+export declare const dev: Command<[], {
+    verbose?: true | undefined;
+    typecheck: "try" | "enable" | "disable";
+    typecheckComponents: boolean;
+    codegen: "enable" | "disable";
+    once: boolean;
+    untilSuccess: boolean;
+    run?: string | undefined;
+    runComponent?: string | undefined;
+    runSh?: string | undefined;
+    tailLogs: string | true;
+    traceEvents: boolean;
+    debugBundlePath?: string | undefined;
+    debugNodeApis?: true | undefined;
+    liveComponentSources?: true | undefined;
+    configure?: true | "new" | "existing" | undefined;
+    team?: string | undefined;
+    project?: string | undefined;
+    devDeployment?: "local" | "cloud" | undefined;
+    prod: boolean;
+    envFile?: string | undefined;
+    skipPush: boolean;
+    adminKey?: string | undefined;
+    url?: string | undefined;
+    overrideAuthUrl?: string | undefined;
+    overrideAuthClient?: string | undefined;
+    overrideAuthUsername?: string | undefined;
+    overrideAuthPassword?: string | undefined;
+    localCloudPort?: string | undefined;
+    localSitePort?: string | undefined;
+    localBackendVersion?: string | undefined;
+    localForceUpgrade: boolean;
+    local: boolean;
+    cloud: boolean;
+}>;
+//# sourceMappingURL=dev.d.ts.map
