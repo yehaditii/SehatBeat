@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            background: #4338CA;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #10B981;
+        }
+        .error {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #EF4444;
+        }
+        .info {
+            background: #DBEAFE;
+            color: #1E40AF;
+            border: 1px solid #3B82F6;
+        }
+    </style>
+</head>
+<body>
+    <h1>SehatBeat Database Seeder</h1>
+    <p>Use this tool to seed your database with sample medicines and doctors data.</p>
+    
+    <div id="status"></div>
+    
+    <button class="button" onclick="seedDatabase()">Seed Database</button>
+    <button class="button" onclick="checkMedicines()">Check Medicines</button>
+    
+    <div id="results"></div>
+
+    <script type="module">
+        import { ConvexHttpClient } from "https://unpkg.com/convex@1.25.4/dist/esm/browser/index.js";
+
+        const convex = new ConvexHttpClient("http://127.0.0.1:8000");
+        
+        window.seedDatabase = async function() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.innerHTML = '<div class="info">🔄 Seeding database with sample data...</div>';
+            resultsDiv.innerHTML = '';
+            
+            try {
+                const result = await convex.mutation("seedData:seedData", {});
+                statusDiv.innerHTML = '<div class="success">✅ Database seeded successfully!</div>';
+                resultsDiv.innerHTML = '<p><strong>Sample data added:</strong></p><ul><li>5 Medicines (Paracetamol, Ibuprofen, Amoxicillin, Omeprazole, Cetirizine)</li><li>Sample Doctors</li><li>Other test data</li></ul>';
+            } catch (error) {
+                console.error('Seeding error:', error);
+                statusDiv.innerHTML = `<div class="error">❌ Error seeding database: ${error.message}</div>`;
+                resultsDiv.innerHTML = '<p><strong>Troubleshooting:</strong></p><ul><li>Make sure Convex server is running (npm run dev:convex)</li><li>Check if the server is accessible at http://localhost:8000</li><li>Refresh the page and try again</li></ul>';
+            }
+        };
+        
+        window.checkMedicines = async function() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.innerHTML = '<div class="info">🔍 Checking medicines in database...</div>';
+            resultsDiv.innerHTML = '';
+            
+            try {
+                const medicines = await convex.query("myFunctions:getMedicines", {});
+                statusDiv.innerHTML = `<div class="success">✅ Found ${medicines.length} medicines in database!</div>`;
+                
+                if (medicines.length > 0) {
+                    resultsDiv.innerHTML = `
+                        <p><strong>Medicines found:</strong></p>
+                        <ul>
+                            ${medicines.map(med => `<li><strong>${med.name}</strong> - $${med.price} (${med.category})</li>`).join('')}
+                        </ul>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = '<p><strong>No medicines found.</strong> Click "Seed Database" to add sample data.</p>';
+                }
+            } catch (error) {
+                console.error('Check error:', error);
+                statusDiv.innerHTML = `<div class="error">❌ Error checking medicines: ${error.message}</div>`;
+                resultsDiv.innerHTML = '<p><strong>This could mean:</strong></p><ul><li>Convex server is not running</li><li>Database connection issues</li><li>Schema problems</li></ul>';
+            }
+        };
+        
+        // Auto-check on page load
+        window.addEventListener('load', () => {
+            setTimeout(checkMedicines, 1000);
+        });
+    </script>
+</body>
+</html>
+

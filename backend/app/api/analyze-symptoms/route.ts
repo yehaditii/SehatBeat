@@ -14,7 +14,14 @@ export async function POST(request: NextRequest) {
     // Perplexity AI API integration
     const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
     
+    console.log('Environment check:', {
+      hasApiKey: !!PERPLEXITY_API_KEY,
+      apiKeyLength: PERPLEXITY_API_KEY?.length || 0,
+      apiKeyStart: PERPLEXITY_API_KEY?.substring(0, 10) || 'none'
+    });
+    
     if (!PERPLEXITY_API_KEY) {
+      console.log('No API key found, using fallback response');
       // Fallback response when API key is not available
       return NextResponse.json({
         analysis: `I've analyzed your symptoms: "${symptoms}". Here's what I found:`,
@@ -65,6 +72,12 @@ Keep responses concise, helpful, and always include a disclaimer about consultin
 
     const data = await response.json();
     const aiResponse = data.choices[0]?.message?.content || '';
+    
+    console.log('Perplexity AI response received:', {
+      status: response.status,
+      responseLength: aiResponse.length,
+      hasContent: !!aiResponse
+    });
 
     // Parse the AI response to extract structured information
     const analysis = aiResponse;

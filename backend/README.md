@@ -35,6 +35,17 @@ Then:
 
 If you want to sync Clerk user data via webhooks, check out this [example repo](https://github.com/thomasballinger/convex-clerk-users-table/).
 
+## AI Health Assistant
+
+This project includes a sophisticated AI health assistant powered by Perplexity AI that can:
+
+- Analyze health symptoms and provide structured responses
+- Offer severity assessments and immediate action steps
+- Provide fallback health advice when AI is unavailable
+- Maintain conversation history and real-time updates
+
+For detailed setup and usage instructions, see [AI_SETUP_GUIDE.md](./AI_SETUP_GUIDE.md).
+
 ## Learn more
 
 To learn more about developing your project with Convex, check out:

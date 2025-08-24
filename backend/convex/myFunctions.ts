@@ -1,3 +1,5 @@
+"use node";
+
 import { v } from "convex/values";
 import { query, mutation, action, internalAction, internalQuery, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
@@ -766,34 +768,139 @@ export const analyzeHealthSymptoms = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Use Perplexity AI for health symptom analysis
-    const structuredResponse = await generatePerplexityHealthResponse(args.symptoms);
-    
-    // Get the current conversation
-    const conversation = await ctx.runQuery(internal.myFunctions.getConversationById, {
-      conversationId: args.conversationId,
-    });
-    
-    if (!conversation) {
-      throw new Error("Conversation not found");
+    try {
+      // Try to call Perplexity AI first
+      const aiResult = await ctx.runAction(api.myFunctions.callPerplexityAI, {
+        symptoms: args.symptoms,
+      });
+      
+      let structuredResponse;
+      
+      if (aiResult.success && aiResult.content) {
+        // Parse the AI response to extract structured information
+        structuredResponse = parseAIHealthResponse(aiResult.content, args.symptoms);
+      } else {
+        // Fallback to structured response if AI fails
+        console.log('Perplexity AI failed, using fallback:', aiResult.error);
+        structuredResponse = generateFallbackHealthResponse(args.symptoms);
+      }
+      
+      // Get the current conversation
+      const conversation = await ctx.runQuery(internal.myFunctions.getConversationById, {
+        conversationId: args.conversationId,
+      });
+      
+      if (!conversation) {
+        throw new Error("Conversation not found");
+      }
+      
+      // Add the AI response to the conversation
+      await ctx.runMutation(internal.myFunctions.updateConversationWithAIResponse, {
+        conversationId: args.conversationId,
+        aiResponse: {
+          role: "assistant",
+          content: structuredResponse.content,
+          timestamp: Date.now(),
+          metadata: {
+            symptoms: structuredResponse.symptoms,
+            severity: structuredResponse.severity,
+            recommendations: structuredResponse.recommendations,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error in analyzeHealthSymptoms:', error);
+      
+      // Even if everything fails, try to add a fallback response
+      try {
+        const fallbackResponse = generateFallbackHealthResponse(args.symptoms);
+        
+        const conversation = await ctx.runQuery(internal.myFunctions.getConversationById, {
+          conversationId: args.conversationId,
+        });
+        
+        if (conversation) {
+          await ctx.runMutation(internal.myFunctions.updateConversationWithAIResponse, {
+            conversationId: args.conversationId,
+            aiResponse: {
+              role: "assistant",
+              content: fallbackResponse.content,
+              timestamp: Date.now(),
+              metadata: {
+                symptoms: fallbackResponse.symptoms,
+                severity: fallbackResponse.severity,
+                recommendations: fallbackResponse.recommendations,
+              },
+            },
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Even fallback failed:', fallbackError);
+      }
     }
     
-    // Add the AI response to the conversation
-    await ctx.runMutation(internal.myFunctions.updateConversationWithAIResponse, {
-      conversationId: args.conversationId,
-      aiResponse: {
-        role: "assistant",
-        content: structuredResponse.content,
-        timestamp: Date.now(),
-        metadata: {
-          symptoms: structuredResponse.symptoms,
-          severity: structuredResponse.severity,
-          recommendations: structuredResponse.recommendations,
-        },
-      },
-    });
-    
     return null;
+  },
+});
+
+// Action to call Perplexity AI with proper environment variable access
+export const callPerplexityAI = action({
+  args: {
+    symptoms: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    content: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      // Get Perplexity API key from environment
+      const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+      
+      if (!PERPLEXITY_API_KEY) {
+        return {
+          success: false,
+          error: "Perplexity API key not configured"
+        };
+      }
+      
+      // Call Perplexity AI API
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-sonar-small-128k-online',
+          messages: [{
+            role: 'user',
+            content: `Analyze these health symptoms: "${args.symptoms}". Provide a structured response with: 1) Problem summary, 2) Possible causes, 3) Severity level, 4) Immediate steps to take, 5) When to seek medical help, 6) Recommended tests, 7) Recommended specialist. Format as markdown.`
+          }],
+          max_tokens: 1000,
+          temperature: 0.3,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Perplexity AI API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const aiContent = data.choices[0].message.content;
+      
+      return {
+        success: true,
+        content: aiContent
+      };
+    } catch (error) {
+      console.error('Error calling Perplexity AI:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
   },
 });
 
@@ -885,37 +992,12 @@ export const analyzeSymptoms = mutation({
 // Helper function to generate structured health responses using Perplexity AI
 async function generatePerplexityHealthResponse(symptoms: string) {
   try {
-    // Call Perplexity AI API for health symptom analysis
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer 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`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
-        messages: [{
-          role: 'user',
-          content: `Analyze these health symptoms: "${symptoms}". Provide a structured response with: 1) Problem summary, 2) Possible causes, 3) Severity level, 4) Immediate steps to take, 5) When to seek medical help, 6) Recommended tests, 7) Recommended specialist. Format as markdown.`
-        }],
-        max_tokens: 1000,
-        temperature: 0.3,
-      }),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Perplexity AI API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const aiContent = data.choices[0].message.content;
-    
-    // Parse the AI response to extract structured information
-    const structuredResponse = parseAIHealthResponse(aiContent, symptoms);
-    
-    return structuredResponse;
+    // For now, use fallback response until we set up proper environment variables
+    // In production, you should set PERPLEXITY_API_KEY in your Convex dashboard
+    console.log('Using fallback response - set PERPLEXITY_API_KEY in Convex dashboard for AI analysis');
+    return generateFallbackHealthResponse(symptoms);
   } catch (error) {
-    console.error('Error calling Perplexity AI:', error);
+    console.error('Error generating health response:', error);
     // Fallback to structured response
     return generateFallbackHealthResponse(symptoms);
   }
