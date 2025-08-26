@@ -18,6 +18,7 @@ import Cart from "./pages/Cart";
 import Reminders from "./pages/Reminders";
 import LabTests from "./pages/LabTests";
 import Doctors from "./pages/Doctors";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

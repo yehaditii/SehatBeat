@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AnatomicalModel } from "@/components/3d/AnatomicalModel";
+
 import { 
   Activity, 
   Search, 
@@ -13,8 +13,11 @@ import {
   TrendingUp,
   CheckCircle,
   ArrowRight,
-  Stethoscope
+  Stethoscope,
+  MessageCircle
 } from "lucide-react";
+import InteractiveBodyMap3D from "@/components/InteractiveBodyMap3D";
+import AIChatbot from "@/components/AIChatbot";
 
 const commonSymptoms = [
   "Headache", "Fever", "Cough", "Sore throat", "Fatigue", 
@@ -41,6 +44,7 @@ const Symptomate = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
 
   const toggleSymptom = (symptom: string) => {
     setSelectedSymptoms(prev =>
@@ -80,6 +84,14 @@ const Symptomate = () => {
           <Badge className="mt-4 bg-secondary text-secondary-foreground">
             95% Accuracy Rate
           </Badge>
+          
+          <Button
+            onClick={() => setIsAIChatOpen(true)}
+            className="mt-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-medium"
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Chat with AI Health Assistant
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -201,22 +213,11 @@ const Symptomate = () => {
             </Card>
           </div>
 
-          {/* Right Column - 3D Model */}
+          {/* Right Column - Health Information */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" />
-                  Interactive Body Map
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Click on body parts to explore related symptoms
-                </p>
-              </CardHeader>
-              <CardContent>
-                <AnatomicalModel />
-              </CardContent>
-            </Card>
+            
+            {/* 3D Interactive Body Map */}
+            <InteractiveBodyMap3D />
 
             {/* Health Tips */}
             <Card className="border-secondary/20 bg-secondary-soft/50">
@@ -260,10 +261,16 @@ const Symptomate = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+                 </div>
+       </div>
+
+       {/* AI Chatbot */}
+       <AIChatbot
+         isOpen={isAIChatOpen}
+         onClose={() => setIsAIChatOpen(false)}
+       />
+     </div>
+   );
+ };
 
 export default Symptomate;

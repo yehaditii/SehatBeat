@@ -1,6 +1,6 @@
 import { HeroSection } from "@/components/home/HeroSection";
 import { FeatureCard } from "@/components/home/FeatureCard";
-import { AnatomicalModel } from "@/components/3d/AnatomicalModel";
+
 import { 
   ShoppingCart, 
   Bell, 
@@ -40,7 +40,7 @@ const features = [
   },
   {
     title: "SehatBeat AI Checker",
-    description: "AI-powered symptom analysis with interactive 3D body mapping for accurate assessments.",
+    description: "AI-powered symptom analysis for accurate health assessments.",
     icon: Activity,
     stats: "95% accuracy"
   },
@@ -50,7 +50,8 @@ const features = [
     icon: FileText,
     isHighlighted: true,
     stats: "New!"
-  }
+  },
+
 ];
 
 const trustFeatures = [
@@ -99,23 +100,7 @@ const Index = () => {
         </div>
       </section>
 
-        {/* 3D SehatBeat AI Section */}
-        <section className="py-20">
-          <div className="container mx-auto px-4">
-            <div className="text-center space-y-4 mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-                Interactive AI Symptom Checker
-              </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Click on body parts to explore symptoms and get AI-powered health insights with SehatBeat AI
-              </p>
-            </div>
 
-          <div className="max-w-4xl mx-auto">
-            <AnatomicalModel />
-          </div>
-        </div>
-      </section>
 
       {/* Trust Section */}
       <section className="py-20 bg-muted/30">

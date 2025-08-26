@@ -42,6 +42,7 @@ const navigationItems = [
   { name: "Medicine", path: "/medicine", icon: ShoppingCart },
   { name: "Reminders", path: "/reminders", icon: Bell },
   { name: "SehatBeat AI", path: "/sehatbeat-ai", icon: Activity },
+
   { name: "Clinical Docs", path: "/clinical-docs", icon: FileText, highlighted: true },
 ];
 

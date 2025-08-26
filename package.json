@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "convex": "^1.10.0"
+    "convex": "^1.10.0",
+    "typescript": "^5.9.2"
   }
 }
