@@ -141,7 +141,7 @@ export default defineSchema({
     updatedAt: v.number(),
     doctorId: v.optional(v.id("doctors")),
     isPrivate: v.boolean(),
-  }).index("by_user", ["userId"]),
+  }).index("by_user", ["userId"]).index("by_user_and_category", ["userId", "category"]),
 
   // AI Assistant conversations
   conversations: defineTable({

@@ -13,48 +13,143 @@ import {
   Calendar,
   User,
   Plus,
-  Star
+  Star,
+  Edit,
+  Trash2,
+  X
 } from "lucide-react";
-
-const mockDocuments = [
-  {
-    id: 1,
-    title: "Cardiology Consultation Notes",
-    date: "2024-01-15",
-    doctor: "Dr. Sarah Johnson",
-    type: "Consultation",
-    priority: "High",
-    tags: ["Cardiology", "Follow-up"]
-  },
-  {
-    id: 2,
-    title: "Lab Results - Complete Blood Count",
-    date: "2024-01-14",
-    doctor: "Dr. Michael Chen",
-    type: "Lab Report",
-    priority: "Normal",
-    tags: ["Lab Results", "Blood Work"]
-  },
-  {
-    id: 3,
-    title: "Physical Therapy Assessment",
-    date: "2024-01-12",
-    doctor: "Dr. Lisa Rodriguez",
-    type: "Assessment",
-    priority: "Medium",
-    tags: ["Physical Therapy", "Rehabilitation"]
-  },
-];
+import { useClinicalDocs } from "@/hooks/useConvex";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const ClinicalDocs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<any>(null);
+  
+  const { clinicalDocs, clinicalDocsStats, addClinicalDoc, updateDoc, deleteDoc } = useClinicalDocs();
+  
+  // Form state for creating/editing documents
+  const [formData, setFormData] = useState({
+    title: "",
+    content: "",
+    category: "",
+    tags: [] as string[],
+    isPrivate: false,
+    doctorId: "",
+  });
+  
+  const [tagInput, setTagInput] = useState("");
 
-  const filteredDocs = mockDocuments.filter(doc =>
+  const handleCreateDocument = async () => {
+    if (!formData.title || !formData.content || !formData.category) return;
+    
+    await addClinicalDoc({
+      title: formData.title,
+      content: formData.content,
+      category: formData.category,
+      tags: formData.tags,
+      isPrivate: formData.isPrivate,
+      doctorId: formData.doctorId || undefined,
+    });
+    
+    setIsCreateModalOpen(false);
+    resetForm();
+  };
+
+  const handleEditDocument = async () => {
+    if (!editingDoc || !formData.title || !formData.content || !formData.category) return;
+    
+    await updateDoc(editingDoc._id, {
+      title: formData.title,
+      content: formData.content,
+      category: formData.category,
+      tags: formData.tags,
+      isPrivate: formData.isPrivate,
+      doctorId: formData.doctorId || undefined,
+    });
+    
+    setIsEditModalOpen(false);
+    setEditingDoc(null);
+    resetForm();
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (confirm("Are you sure you want to delete this document?")) {
+      await deleteDoc(docId);
+    }
+  };
+
+  const openEditModal = (doc: any) => {
+    setEditingDoc(doc);
+    setFormData({
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+      tags: doc.tags || [],
+      isPrivate: doc.isPrivate,
+      doctorId: doc.doctorId || "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      content: "",
+      category: "",
+      tags: [],
+      isPrivate: false,
+      doctorId: "",
+    });
+    setTagInput("");
+  };
+
+  const addTag = () => {
+    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagInput.trim()]
+      }));
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const getPriorityColor = (tags: string[]) => {
+    if (tags.includes("High") || tags.includes("Priority")) return "destructive";
+    if (tags.includes("Medium")) return "default";
+    return "secondary";
+  };
+
+  const getPriorityText = (tags: string[]) => {
+    if (tags.includes("High") || tags.includes("Priority")) return "High";
+    if (tags.includes("Medium")) return "Medium";
+    return "Normal";
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString();
+  };
+
+  const filteredDocs = clinicalDocs?.filter(doc =>
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.doctor.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ) || [];
+
+  const consultationDocs = clinicalDocs?.filter(doc => doc.category === "Consultation") || [];
+  const labDocs = clinicalDocs?.filter(doc => doc.category === "Lab Report") || [];
+  const assessmentDocs = clinicalDocs?.filter(doc => doc.category === "Assessment") || [];
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-20 lg:pb-6">
@@ -76,10 +171,93 @@ const ClinicalDocs = () => {
                 Comprehensive clinical notes management with structured templates and secure sharing
               </p>
             </div>
-            <Button className="bg-gradient-accent text-accent-foreground shadow-medium hover:shadow-strong">
-              <Plus className="w-4 h-4 mr-2" />
-              New Document
-            </Button>
+            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-accent text-accent-foreground shadow-medium hover:shadow-strong">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Document
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Clinical Document</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Enter document title"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Consultation">Consultation</SelectItem>
+                        <SelectItem value="Lab Report">Lab Report</SelectItem>
+                        <SelectItem value="Assessment">Assessment</SelectItem>
+                        <SelectItem value="Prescription">Prescription</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="content">Content</Label>
+                    <Textarea
+                      id="content"
+                      value={formData.content}
+                      onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                      placeholder="Enter document content"
+                      rows={6}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tags">Tags</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="tags"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        placeholder="Add tags"
+                        onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                      />
+                      <Button type="button" onClick={addTag} variant="outline">Add</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="cursor-pointer">
+                          {tag}
+                          <X className="w-3 h-3 ml-1" onClick={() => removeTag(tag)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isPrivate"
+                      checked={formData.isPrivate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, isPrivate: e.target.checked }))}
+                    />
+                    <Label htmlFor="isPrivate">Private document</Label>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateDocument}>
+                      Create Document
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Search and Filter */}
@@ -116,7 +294,9 @@ const ClinicalDocs = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-accent">24</p>
+                      <p className="text-2xl font-bold text-accent">
+                        {clinicalDocsStats?.totalDocuments || 0}
+                      </p>
                       <p className="text-sm text-muted-foreground">Total Documents</p>
                     </div>
                     <FileText className="w-8 h-8 text-accent/60" />
@@ -128,7 +308,9 @@ const ClinicalDocs = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-foreground">12</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {clinicalDocsStats?.thisMonth || 0}
+                      </p>
                       <p className="text-sm text-muted-foreground">This Month</p>
                     </div>
                     <Calendar className="w-8 h-8 text-primary/60" />
@@ -140,8 +322,10 @@ const ClinicalDocs = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-foreground">8</p>
-                      <p className="text-sm text-muted-foreground">Doctors</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {Object.keys(clinicalDocsStats?.byCategory || {}).length}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Categories</p>
                     </div>
                     <User className="w-8 h-8 text-secondary/60" />
                   </div>
@@ -152,7 +336,9 @@ const ClinicalDocs = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-foreground">3</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {clinicalDocsStats?.priorityItems || 0}
+                      </p>
                       <p className="text-sm text-muted-foreground">Priority Items</p>
                     </div>
                     <Star className="w-8 h-8 text-orange-500/60" />
@@ -163,8 +349,86 @@ const ClinicalDocs = () => {
 
             {/* Documents List */}
             <div className="space-y-4">
-              {filteredDocs.map((doc) => (
-                <Card key={doc.id} className="hover:shadow-medium transition-all duration-300">
+              {filteredDocs.length === 0 ? (
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No documents found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm ? `No documents match "${searchTerm}"` : "Create your first clinical document to get started."}
+                  </p>
+                  {!searchTerm && (
+                    <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
+                      Create Document
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                filteredDocs.map((doc) => (
+                  <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="text-lg font-semibold text-foreground mb-1">
+                                {doc.title}
+                              </h3>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {formatDate(doc.createdAt)}
+                                </span>
+                                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                                  {doc.category}
+                                </span>
+                              </div>
+                            </div>
+                            <Badge 
+                              variant={getPriorityColor(doc.tags)}
+                              className="ml-4"
+                            >
+                              {getPriorityText(doc.tags)}
+                            </Badge>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {doc.tags.map((tag, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="consultation" className="space-y-4">
+            {consultationDocs.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No consultation documents</h3>
+                <p className="text-muted-foreground mb-4">Create your first consultation document to get started.</p>
+                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
+                  Create Consultation
+                </Button>
+              </div>
+            ) : (
+              consultationDocs.map((doc) => (
+                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-3">
@@ -175,24 +439,15 @@ const ClinicalDocs = () => {
                             </h3>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {doc.doctor}
-                              </span>
-                              <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {doc.date}
+                                {formatDate(doc.createdAt)}
                               </span>
                             </div>
                           </div>
-                          <Badge 
-                            variant={doc.priority === "High" ? "destructive" : 
-                                   doc.priority === "Medium" ? "default" : "secondary"}
-                            className="ml-4"
-                          >
-                            {doc.priority}
+                          <Badge variant={getPriorityColor(doc.tags)}>
+                            {getPriorityText(doc.tags)}
                           </Badge>
                         </div>
-
                         <div className="flex flex-wrap gap-2">
                           {doc.tags.map((tag, index) => (
                             <Badge key={index} variant="outline" className="text-xs">
@@ -201,56 +456,215 @@ const ClinicalDocs = () => {
                           ))}
                         </div>
                       </div>
-
                       <div className="flex items-center gap-2 ml-4">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="w-4 h-4" />
+                        <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
+                          <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
-                          <Download className="w-4 h-4" />
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+              ))
+            )}
           </TabsContent>
 
-          <TabsContent value="consultation">
-            <div className="text-center py-12">
-              <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No consultation documents</h3>
-              <p className="text-muted-foreground mb-4">Upload your first consultation document to get started.</p>
-              <Button className="bg-gradient-accent text-accent-foreground">
-                Upload Consultation
-              </Button>
-            </div>
+          <TabsContent value="lab" className="space-y-4">
+            {labDocs.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No lab reports</h3>
+                <p className="text-muted-foreground mb-4">Create your lab reports for easy access and tracking.</p>
+                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
+                  Create Lab Report
+                </Button>
+              </div>
+            ) : (
+              labDocs.map((doc) => (
+                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {doc.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatDate(doc.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant={getPriorityColor(doc.tags)}>
+                            {getPriorityText(doc.tags)}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {doc.tags.map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </TabsContent>
 
-          <TabsContent value="lab">
-            <div className="text-center py-12">
-              <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No lab reports</h3>
-              <p className="text-muted-foreground mb-4">Upload your lab reports for easy access and tracking.</p>
-              <Button className="bg-gradient-accent text-accent-foreground">
-                Upload Lab Report
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="assessment">
-            <div className="text-center py-12">
-              <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No assessments</h3>
-              <p className="text-muted-foreground mb-4">Assessment documents will appear here once uploaded.</p>
-              <Button className="bg-gradient-accent text-accent-foreground">
-                Upload Assessment
-              </Button>
-            </div>
+          <TabsContent value="assessment" className="space-y-4">
+            {assessmentDocs.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No assessments</h3>
+                <p className="text-muted-foreground mb-4">Assessment documents will appear here once created.</p>
+                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
+                  Create Assessment
+                </Button>
+              </div>
+            ) : (
+              assessmentDocs.map((doc) => (
+                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {doc.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatDate(doc.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant={getPriorityColor(doc.tags)}>
+                            {getPriorityText(doc.tags)}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {doc.tags.map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Document Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Clinical Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter document title"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-category">Category</Label>
+              <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Consultation">Consultation</SelectItem>
+                  <SelectItem value="Lab Report">Lab Report</SelectItem>
+                  <SelectItem value="Assessment">Assessment</SelectItem>
+                  <SelectItem value="Prescription">Prescription</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-content">Content</Label>
+              <Textarea
+                id="edit-content"
+                value={formData.content}
+                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Enter document content"
+                rows={6}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-tags">Tags</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="edit-tags"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  placeholder="Add tags"
+                  onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                />
+                <Button type="button" onClick={addTag} variant="outline">Add</Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="cursor-pointer">
+                    {tag}
+                    <X className="w-3 h-3 ml-1" onClick={() => removeTag(tag)} />
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-isPrivate"
+                checked={formData.isPrivate}
+                onChange={(e) => setFormData(prev => ({ ...prev, isPrivate: e.target.checked }))}
+              />
+              <Label htmlFor="edit-isPrivate">Private document</Label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditDocument}>
+                Update Document
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

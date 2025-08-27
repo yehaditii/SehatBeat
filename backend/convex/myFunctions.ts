@@ -1,4 +1,4 @@
-"use node";
+// Node.js features not needed for these functions
 
 import { v } from "convex/values";
 import { query, mutation, action, internalAction, internalQuery, internalMutation } from "./_generated/server";
@@ -617,6 +617,7 @@ export const createClinicalDoc = mutation({
     doctorId: v.optional(v.id("doctors")),
     isPrivate: v.boolean(),
   },
+  returns: v.id("clinicalDocs"),
   handler: async (ctx, args) => {
     const now = Date.now();
     return await ctx.db.insert("clinicalDocs", {
@@ -629,6 +630,20 @@ export const createClinicalDoc = mutation({
 
 export const getClinicalDocs = query({
   args: { userId: v.id("users") },
+  returns: v.array(v.object({
+    _id: v.id("clinicalDocs"),
+    _creationTime: v.number(),
+    userId: v.id("users"),
+    title: v.string(),
+    content: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
+    attachments: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    doctorId: v.optional(v.id("doctors")),
+    isPrivate: v.boolean(),
+  })),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("clinicalDocs")
@@ -650,18 +665,116 @@ export const updateClinicalDoc = mutation({
       isPrivate: v.optional(v.boolean()),
     }),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    return await ctx.db.patch(args.docId, {
+    await ctx.db.patch(args.docId, {
       ...args.updates,
       updatedAt: Date.now(),
     });
+    return null;
   },
 });
 
 export const deleteClinicalDoc = mutation({
   args: { docId: v.id("clinicalDocs") },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    return await ctx.db.delete(args.docId);
+    await ctx.db.delete(args.docId);
+    return null;
+  },
+});
+
+export const getClinicalDocsByCategory = query({
+  args: { 
+    userId: v.id("users"),
+    category: v.string()
+  },
+  returns: v.array(v.object({
+    _id: v.id("clinicalDocs"),
+    _creationTime: v.number(),
+    userId: v.id("users"),
+    title: v.string(),
+    content: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
+    attachments: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    doctorId: v.optional(v.id("doctors")),
+    isPrivate: v.boolean(),
+  })),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("clinicalDocs")
+      .withIndex("by_user_and_category", (q) => 
+        q.eq("userId", args.userId).eq("category", args.category)
+      )
+      .order("desc")
+      .collect();
+  },
+});
+
+export const getClinicalDocStats = query({
+  args: { userId: v.id("users") },
+  returns: v.object({
+    totalDocuments: v.number(),
+    thisMonth: v.number(),
+    byCategory: v.record(v.string(), v.number()),
+    priorityItems: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const allDocs = await ctx.db
+      .query("clinicalDocs")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    const now = Date.now();
+    const oneMonthAgo = now - (30 * 24 * 60 * 60 * 1000);
+    
+    const thisMonth = allDocs.filter(doc => doc.createdAt >= oneMonthAgo).length;
+    
+    const byCategory: Record<string, number> = {};
+    allDocs.forEach(doc => {
+      byCategory[doc.category] = (byCategory[doc.category] || 0) + 1;
+    });
+    
+    // Count priority items (documents with "High" priority tags or recent documents)
+    const priorityItems = allDocs.filter(doc => 
+      doc.tags.includes("High") || 
+      doc.tags.includes("Priority") ||
+      doc.createdAt >= oneMonthAgo
+    ).length;
+    
+    return {
+      totalDocuments: allDocs.length,
+      thisMonth,
+      byCategory,
+      priorityItems,
+    };
+  },
+});
+
+export const getClinicalDocById = query({
+  args: { docId: v.id("clinicalDocs") },
+  returns: v.union(
+    v.object({
+      _id: v.id("clinicalDocs"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      title: v.string(),
+      content: v.string(),
+      category: v.string(),
+      tags: v.array(v.string()),
+      attachments: v.optional(v.array(v.string())),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      doctorId: v.optional(v.id("doctors")),
+      isPrivate: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.docId);
   },
 });
 
@@ -669,6 +782,7 @@ export const deleteClinicalDoc = mutation({
 
 export const createConversation = mutation({
   args: { userId: v.id("users") },
+  returns: v.id("conversations"),
   handler: async (ctx, args) => {
     const now = Date.now();
     return await ctx.db.insert("conversations", {
@@ -683,6 +797,27 @@ export const createConversation = mutation({
 
 export const getConversation = query({
   args: { userId: v.id("users") },
+  returns: v.union(
+    v.object({
+      _id: v.id("conversations"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      messages: v.array(v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+        timestamp: v.number(),
+        metadata: v.optional(v.object({
+          symptoms: v.optional(v.array(v.string())),
+          severity: v.optional(v.string()),
+          recommendations: v.optional(v.array(v.string())),
+        })),
+      })),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      isActive: v.boolean(),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("conversations")
@@ -695,6 +830,27 @@ export const getConversation = query({
 // Internal function to get conversation by ID
 export const getConversationById = internalQuery({
   args: { conversationId: v.id("conversations") },
+  returns: v.union(
+    v.object({
+      _id: v.id("conversations"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      messages: v.array(v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+        timestamp: v.number(),
+        metadata: v.optional(v.object({
+          symptoms: v.optional(v.array(v.string())),
+          severity: v.optional(v.string()),
+          recommendations: v.optional(v.array(v.string())),
+        })),
+      })),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      isActive: v.boolean(),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.conversationId);
   },
@@ -711,6 +867,7 @@ export const addMessage = mutation({
       recommendations: v.optional(v.array(v.string())),
     })),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) throw new Error("Conversation not found");
@@ -724,10 +881,11 @@ export const addMessage = mutation({
     
     const updatedMessages = [...conversation.messages, newMessage];
     
-    return await ctx.db.patch(args.conversationId, {
+    await ctx.db.patch(args.conversationId, {
       messages: updatedMessages,
       updatedAt: Date.now(),
     });
+    return null;
   },
 });
 
@@ -746,16 +904,18 @@ export const updateConversationWithAIResponse = internalMutation({
       })),
     }),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) throw new Error("Conversation not found");
     
     const updatedMessages = [...conversation.messages, args.aiResponse];
     
-    return await ctx.db.patch(args.conversationId, {
+    await ctx.db.patch(args.conversationId, {
       messages: updatedMessages,
       updatedAt: Date.now(),
     });
+    return null;
   },
 });
 

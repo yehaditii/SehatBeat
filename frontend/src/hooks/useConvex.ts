@@ -146,9 +146,23 @@ export const useClinicalDocs = () => {
   const { userId } = useAuth();
   const user = useCurrentUser();
   
+  console.log("useClinicalDocs - userId:", userId);
+  console.log("useClinicalDocs - user:", user);
+  console.log("useClinicalDocs - user?._id:", user?._id);
+  
   const clinicalDocs = useQuery(
     "getClinicalDocs",
     user?._id ? { userId: user._id } : "skip"
+  );
+  
+  const clinicalDocsStats = useQuery(
+    "getClinicalDocStats",
+    user?._id ? { userId: user._id } : "skip"
+  );
+  
+  const getClinicalDocById = useQuery(
+    "getClinicalDocById",
+    "skip"
   );
   
   const createClinicalDoc = useMutation("createClinicalDoc");
@@ -164,8 +178,23 @@ export const useClinicalDocs = () => {
     doctorId?: string;
     isPrivate: boolean;
   }) => {
-    if (!user?._id) return;
-    await createClinicalDoc({ userId: user._id, ...docData });
+    console.log("addClinicalDoc called with:", docData);
+    console.log("Current user ID:", user?._id);
+    
+    if (!user?._id) {
+      console.error("Cannot create clinical document: User not authenticated or loaded");
+      throw new Error("User not authenticated. Please log in to create clinical documents.");
+    }
+    
+    try {
+      console.log("Creating clinical document with userId:", user._id);
+      const result = await createClinicalDoc({ userId: user._id, ...docData });
+      console.log("Clinical document created successfully:", result);
+      return result;
+    } catch (error) {
+      console.error("Error creating clinical document:", error);
+      throw error;
+    }
   };
   
   const updateDoc = async (docId: string, updates: any) => {
@@ -178,9 +207,12 @@ export const useClinicalDocs = () => {
   
   return {
     clinicalDocs,
+    clinicalDocsStats,
     addClinicalDoc,
     updateDoc,
     deleteDoc,
+    isUserLoaded: !!user?._id,
+    currentUser: user,
   };
 };
 
