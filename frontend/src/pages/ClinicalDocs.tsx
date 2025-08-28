@@ -91,7 +91,13 @@ const ClinicalDocs = () => {
   };
 
   const handleEditDocument = async () => {
-    if (!editingDoc || !formData.title || !formData.content || !formData.category) return;
+    if (!editingDoc || !formData.title || !formData.content || !formData.category) {
+      console.log("Validation failed:", { editingDoc, formData });
+      return;
+    }
+    
+    console.log("Updating document:", editingDoc._id, formData);
+    
     try {
       await updateDoc(editingDoc._id, {
         title: formData.title,
@@ -101,9 +107,12 @@ const ClinicalDocs = () => {
         isPrivate: formData.isPrivate,
         doctorId: formData.doctorId || undefined,
       });
-    } catch {
+      console.log("Document updated successfully");
+    } catch (error) {
+      console.log("Update failed, checking if local document:", error);
       // Fallback update for local docs
       if (String(editingDoc._id).startsWith('local-')) {
+        console.log("Updating local document");
         setLocalDocs(prev => prev.map(d => d._id === editingDoc._id ? {
           ...d,
           title: formData.title,
@@ -114,6 +123,11 @@ const ClinicalDocs = () => {
           doctorId: formData.doctorId || undefined,
           updatedAt: Date.now(),
         } : d));
+        console.log("Local document updated successfully");
+      } else {
+        console.error("Failed to update remote document:", error);
+        // You might want to show an error message to the user here
+        return; // Don't close the modal if the update failed
       }
     }
     
@@ -183,8 +197,17 @@ const ClinicalDocs = () => {
   };
 
   const openEditModal = (doc: any) => {
+    console.log("Opening edit modal for document:", doc);
     setEditingDoc(doc);
     setFormData({
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+      tags: doc.tags || [],
+      isPrivate: doc.isPrivate,
+      doctorId: doc.doctorId || "",
+    });
+    console.log("Form data set to:", {
       title: doc.title,
       content: doc.content,
       category: doc.category,
@@ -839,10 +862,18 @@ const ClinicalDocs = () => {
               <Label htmlFor="edit-isPrivate">Private document</Label>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              <Button variant="outline" onClick={() => {
+                console.log("Cancel button clicked");
+                setIsEditModalOpen(false);
+                setEditingDoc(null);
+                resetForm();
+              }}>
                 Cancel
               </Button>
-              <Button onClick={handleEditDocument}>
+              <Button onClick={() => {
+                console.log("Update button clicked");
+                handleEditDocument();
+              }}>
                 Update Document
               </Button>
             </div>

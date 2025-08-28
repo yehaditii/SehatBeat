@@ -198,11 +198,37 @@ export const useClinicalDocs = () => {
   };
   
   const updateDoc = async (docId: string, updates: any) => {
-    await updateClinicalDoc({ docId, updates });
+    try {
+      // Check if this is a local document
+      if (String(docId).startsWith('local-')) {
+        // For local documents, we'll let the calling component handle the update
+        // This allows the component to update its local state
+        throw new Error('Local document - update handled by component');
+      }
+      
+      // For remote documents, call the Convex mutation
+      await updateClinicalDoc({ docId, updates });
+    } catch (error) {
+      console.error("Error updating clinical document:", error);
+      throw error;
+    }
   };
   
   const deleteDoc = async (docId: string) => {
-    await deleteClinicalDoc({ docId });
+    try {
+      // Check if this is a local document
+      if (String(docId).startsWith('local-')) {
+        // For local documents, we'll let the calling component handle the deletion
+        // This allows the component to update its local state
+        throw new Error('Local document - deletion handled by component');
+      }
+      
+      // For remote documents, call the Convex mutation
+      await deleteClinicalDoc({ docId });
+    } catch (error) {
+      console.error("Error deleting clinical document:", error);
+      throw error;
+    }
   };
   
   return {
