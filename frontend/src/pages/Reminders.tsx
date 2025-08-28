@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Bell, 
   Plus,
@@ -26,6 +27,7 @@ interface Reminder {
   datetime: string;
   recurring: boolean;
   completed: boolean;
+  notified?: boolean;
 }
 
 const reminders: Reminder[] = [
@@ -36,7 +38,8 @@ const reminders: Reminder[] = [
     description: '500mg after breakfast',
     datetime: '2024-01-16T09:00',
     recurring: true,
-    completed: false
+    completed: false,
+    notified: false
   },
   {
     id: '2',
@@ -45,7 +48,8 @@ const reminders: Reminder[] = [
     description: 'Complete blood count at PathLab',
     datetime: '2024-01-18T10:30',
     recurring: false,
-    completed: false
+    completed: false,
+    notified: false
   },
   {
     id: '3',
@@ -54,13 +58,15 @@ const reminders: Reminder[] = [
     description: 'Regular checkup with cardiologist',
     datetime: '2024-01-20T15:00',
     recurring: false,
-    completed: false
+    completed: false,
+    notified: false
   }
 ];
 
 const Reminders = () => {
   const [activeReminders, setActiveReminders] = useState<Reminder[]>(reminders);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newReminder, setNewReminder] = useState({
     title: '',
     type: 'medicine' as 'medicine' | 'lab-test' | 'appointment',
@@ -68,6 +74,44 @@ const Reminders = () => {
     datetime: '',
     recurring: false
   });
+  const { toast } = useToast();
+  const intervalRef = useRef<number | null>(null);
+
+  const triggerDueCheck = () => {
+    setActiveReminders(prev => {
+      const now = Date.now();
+      return prev.map(r => {
+        const scheduled = new Date(r.datetime).getTime();
+        const diff = scheduled - now;
+
+        // If we missed it by more than 60s (tab slept), don't spam; mark as handled
+        if (!r.notified && diff < -60000 && !r.recurring) {
+          return { ...r, notified: true };
+        }
+
+        // Fire when within a 1s window around the scheduled time
+        if (!r.notified && Math.abs(diff) <= 1000) {
+          const title = `Reminder: ${r.title}`;
+          const body = `${r.type.replace('-', ' ')} • ${r.description || ''}`.trim();
+
+          if (typeof window !== 'undefined' && "Notification" in window && Notification.permission === 'granted') {
+            try { new Notification(title, { body }); } catch {}
+          } else {
+            toast({ title, description: body || 'It\'s time!' });
+          }
+
+          if (r.recurring) {
+            // Schedule the next valid day strictly after now
+            let next = scheduled + 24 * 60 * 60 * 1000;
+            while (next <= now) next += 24 * 60 * 60 * 1000;
+            return { ...r, datetime: new Date(next).toISOString().slice(0,16), notified: false };
+          }
+          return { ...r, notified: true };
+        }
+        return r;
+      });
+    });
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -95,16 +139,7 @@ const Reminders = () => {
     };
   };
 
-  const handleAddReminder = () => {
-    if (!newReminder.title || !newReminder.datetime) return;
-    
-    const reminder: Reminder = {
-      id: Date.now().toString(),
-      ...newReminder,
-      completed: false
-    };
-    
-    setActiveReminders(prev => [...prev, reminder]);
+  const resetForm = () => {
     setNewReminder({
       title: '',
       type: 'medicine',
@@ -112,8 +147,65 @@ const Reminders = () => {
       datetime: '',
       recurring: false
     });
+    setEditingId(null);
+  };
+
+  const handleSubmitReminder = () => {
+    if (!newReminder.title || !newReminder.datetime) return;
+
+    if (editingId) {
+      // Update existing reminder
+      setActiveReminders(prev =>
+        prev.map(r =>
+          r.id === editingId
+            ? { ...r, ...newReminder, notified: false }
+            : r
+        )
+      );
+    } else {
+      // Create new reminder
+      const reminder: Reminder = {
+        id: Date.now().toString(),
+        ...newReminder,
+        completed: false,
+        notified: false
+      };
+      setActiveReminders(prev => [...prev, reminder]);
+    }
+
+    resetForm();
     setShowAddForm(false);
   };
+
+  // Request notification permission and start scheduler
+  useEffect(() => {
+    if (typeof window !== 'undefined' && "Notification" in window) {
+      try { Notification.requestPermission().catch(() => void 0); } catch {}
+    }
+
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+    }
+
+    // Immediate tick and set 1s interval
+    triggerDueCheck();
+    intervalRef.current = window.setInterval(triggerDueCheck, 1000);
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        triggerDueCheck();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [toast]);
 
   const toggleComplete = (id: string) => {
     setActiveReminders(prev =>
@@ -148,7 +240,7 @@ const Reminders = () => {
         {/* Add Reminder Button */}
         <div className="mb-8 text-center">
           <Button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => { resetForm(); setShowAddForm(true); }}
             className="bg-gradient-primary text-primary-foreground shadow-medium hover:shadow-strong"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -160,7 +252,7 @@ const Reminders = () => {
         {showAddForm && (
           <Card className="mb-8 border-primary/20">
             <CardHeader>
-              <CardTitle>Create New Reminder</CardTitle>
+              <CardTitle>{editingId ? 'Edit Reminder' : 'Create New Reminder'}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -221,10 +313,10 @@ const Reminders = () => {
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button onClick={handleAddReminder} className="bg-primary text-primary-foreground">
-                  Create Reminder
+                <Button onClick={handleSubmitReminder} className="bg-primary text-primary-foreground">
+                  {editingId ? 'Update Reminder' : 'Create Reminder'}
                 </Button>
-                <Button variant="outline" onClick={() => setShowAddForm(false)}>
+                <Button variant="outline" onClick={() => { setShowAddForm(false); resetForm(); }}>
                   Cancel
                 </Button>
               </div>
@@ -298,7 +390,21 @@ const Reminders = () => {
                           reminder.completed ? 'fill-primary' : ''
                         }`} />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingId(reminder.id);
+                          setNewReminder({
+                            title: reminder.title,
+                            type: reminder.type,
+                            description: reminder.description,
+                            datetime: reminder.datetime,
+                            recurring: reminder.recurring,
+                          });
+                          setShowAddForm(true);
+                        }}
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
