@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Storage Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .file-info {
+            background-color: #e2e3e5;
+            border: 1px solid #d6d8db;
+            color: #383d41;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .category-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .category-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .category-card h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .category-card p {
+            margin: 0;
+            font-size: 12px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 Document Storage System Test</h1>
+        <p>Test the document upload, download, and management functionality.</p>
+
+        <div class="category-info">
+            <div class="category-card">
+                <h4>🏥 Medical Records</h4>
+                <p>Patient history, diagnoses, treatment plans</p>
+            </div>
+            <div class="category-card">
+                <h4>💊 Prescriptions</h4>
+                <p>Medication prescriptions and dosage instructions</p>
+            </div>
+            <div class="category-card">
+                <h4>🔬 Lab Results</h4>
+                <p>Test results, blood work, imaging reports</p>
+            </div>
+            <div class="category-card">
+                <h4>🛡️ Insurance</h4>
+                <p>Insurance cards, policy documents, claims</p>
+            </div>
+            <div class="category-card">
+                <h4>🆔 ID Documents</h4>
+                <p>Driver's license, passport, government IDs</p>
+            </div>
+            <div class="category-card">
+                <h4>📄 Other</h4>
+                <p>Miscellaneous medical documents</p>
+            </div>
+        </div>
+
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="file">Select File:</label>
+                <input type="file" id="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx,.xls,.xlsx" required>
+                <div id="fileInfo" class="file-info" style="display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="userId">User ID (Convex ID):</label>
+                <input type="text" id="userId" name="userId" placeholder="Enter Convex user ID" required>
+            </div>
+
+            <div class="form-group">
+                <label for="title">Document Title:</label>
+                <input type="text" id="title" name="title" placeholder="Enter document title" required>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description (Optional):</label>
+                <textarea id="description" name="description" placeholder="Enter document description"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="category">Category:</label>
+                <select id="category" name="category" required>
+                    <option value="">Select category</option>
+                    <option value="medical_record">Medical Records</option>
+                    <option value="prescription">Prescriptions</option>
+                    <option value="lab_result">Lab Results</option>
+                    <option value="insurance">Insurance</option>
+                    <option value="id_document">ID Documents</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="tags">Tags (comma-separated):</label>
+                <input type="text" id="tags" name="tags" placeholder="tag1, tag2, tag3">
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="isPrivate" name="isPrivate">
+                    Make document private
+                </label>
+            </div>
+
+            <button type="submit" id="uploadBtn">📤 Upload Document</button>
+            <button type="button" id="testHealthBtn">🏥 Test Health Check</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // File info display
+        document.getElementById('file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const fileInfo = document.getElementById('fileInfo');
+            
+            if (file) {
+                const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+                fileInfo.innerHTML = `
+                    <strong>File:</strong> ${file.name}<br>
+                    <strong>Size:</strong> ${sizeInMB} MB<br>
+                    <strong>Type:</strong> ${file.type || 'Unknown'}
+                `;
+                fileInfo.style.display = 'block';
+            } else {
+                fileInfo.style.display = 'none';
+            }
+        });
+
+        // Upload form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            const resultDiv = document.getElementById('result');
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ Uploading...';
+            
+            try {
+                const formData = new FormData();
+                const file = document.getElementById('file').files[0];
+                const userId = document.getElementById('userId').value;
+                const title = document.getElementById('title').value;
+                const description = document.getElementById('description').value;
+                const category = document.getElementById('category').value;
+                const tags = document.getElementById('tags').value;
+                const isPrivate = document.getElementById('isPrivate').checked;
+
+                formData.append('file', file);
+                formData.append('userId', userId);
+                formData.append('title', title);
+                formData.append('description', description);
+                formData.append('category', category);
+                formData.append('tags', tags);
+                formData.append('isPrivate', isPrivate.toString());
+
+                // Note: Replace with your actual Convex HTTP endpoint
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        ✅ Upload Successful!
+                        
+                        Document ID: ${result.documentId}
+                        Message: ${result.message}
+                        
+                        You can now:
+                        - Download the document using the document ID
+                        - Share it with other users
+                        - Update metadata or delete as needed
+                    `;
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    ❌ Upload Failed!
+                    
+                    Error: ${error.message}
+                    
+                    Troubleshooting:
+                    1. Check if your Convex backend is running
+                    2. Verify the HTTP endpoint is configured correctly
+                    3. Ensure all required fields are filled
+                    4. Check file size (max 10MB) and type
+                `;
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '📤 Upload Document';
+            }
+        });
+
+        // Health check test
+        document.getElementById('testHealthBtn').addEventListener('click', async function() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Note: Replace with your actual Convex HTTP endpoint
+                const response = await fetch('/api/health');
+                const result = await response.json();
+                
+                resultDiv.className = 'result info';
+                resultDiv.innerHTML = `
+                    🏥 Health Check Result
+                    
+                    Status: ${result.status}
+                    Timestamp: ${result.timestamp}
+                    
+                    ✅ Backend is healthy and responding!
+                `;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    ❌ Health Check Failed!
+                    
+                    Error: ${error.message}
+                    
+                    This means:
+                    1. Your Convex backend is not running
+                    2. The HTTP endpoint is not configured
+                    3. There's a network connectivity issue
+                    
+                    Please check your backend setup first.
+                `;
+            }
+        });
+
+        // Auto-fill sample data for testing
+        function fillSampleData() {
+            document.getElementById('userId').value = 'sample_user_id_123';
+            document.getElementById('title').value = 'Sample Medical Document';
+            document.getElementById('description').value = 'This is a sample document for testing the storage system';
+            document.getElementById('category').value = 'medical_record';
+            document.getElementById('tags').value = 'sample, test, medical, demo';
+            document.getElementById('isPrivate').checked = true;
+        }
+
+        // Add a button to fill sample data
+        const sampleBtn = document.createElement('button');
+        sampleBtn.textContent = '📝 Fill Sample Data';
+        sampleBtn.type = 'button';
+        sampleBtn.onclick = fillSampleData;
+        sampleBtn.style.backgroundColor = '#28a745';
+        document.querySelector('form').appendChild(sampleBtn);
+    </script>
+</body>
+</html>

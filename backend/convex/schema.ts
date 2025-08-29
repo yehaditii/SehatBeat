@@ -23,6 +23,47 @@ export default defineSchema({
     })),
   }).index("by_clerk_id", ["clerkId"]),
 
+  // Document storage system
+  documents: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    fileName: v.string(),
+    fileType: v.string(), // MIME type
+    fileSize: v.number(), // Size in bytes
+    storageId: v.id("_storage"), // Reference to Convex storage
+    category: v.union(
+      v.literal("medical_record"),
+      v.literal("prescription"),
+      v.literal("lab_result"),
+      v.literal("insurance"),
+      v.literal("id_document"),
+      v.literal("other")
+    ),
+    tags: v.array(v.string()),
+    isPrivate: v.boolean(),
+    uploadedAt: v.number(),
+    lastModified: v.number(),
+    metadata: v.optional(v.object({
+      doctorId: v.optional(v.id("doctors")),
+      appointmentId: v.optional(v.id("appointments")),
+      labTestId: v.optional(v.id("labTests")),
+      expiryDate: v.optional(v.number()),
+      documentNumber: v.optional(v.string()),
+      issuingAuthority: v.optional(v.string()),
+    })),
+    accessControl: v.optional(v.object({
+      sharedWith: v.array(v.id("users")), // Users who can access this document
+      requireApproval: v.boolean(), // Whether sharing requires approval
+      isPublic: v.boolean(), // Whether document is publicly accessible
+    })),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_category", ["userId", "category"])
+    .index("by_user_and_upload_date", ["userId", "uploadedAt"])
+    .index("by_category", ["category"])
+    .index("by_file_type", ["fileType"]),
+
   // Medicine catalog
   medicines: defineTable({
     name: v.string(),

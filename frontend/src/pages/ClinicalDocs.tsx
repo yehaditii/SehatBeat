@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useMutation as useConvexMutation } from "convex/react";
+import EnhancedClinicalDocsUploadModal from "@/components/EnhancedClinicalDocsUploadModal";
 
 const ClinicalDocs = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -148,46 +149,117 @@ const ClinicalDocs = () => {
     }
   };
 
+  // Enhanced upload handler for the new modal
+  const handleEnhancedUpload = async (file: File, metadata: {
+    title: string;
+    category: string;
+    description?: string;
+    tags: string[];
+    isPrivate: boolean;
+  }) => {
+    setIsUploading(true);
+    
+    // For now, use local storage since Convex isn't connected
+    try {
+      const now = Date.now();
+      const objectUrl = URL.createObjectURL(file);
+      
+      // Add to local documents immediately
+      const newDoc = {
+        _id: `local-${now}`,
+        _creationTime: now,
+        createdAt: now,
+        userId: 'local',
+        title: metadata.title,
+        content: metadata.description || `Uploaded file: ${file.name}`,
+        category: metadata.category,
+        tags: [...metadata.tags],
+        attachments: [objectUrl],
+        fileType: file.type,
+        fileName: file.name,
+        updatedAt: now,
+        doctorId: formData.doctorId || undefined,
+        isPrivate: metadata.isPrivate,
+      };
+      
+      setLocalDocs(prev => [newDoc, ...prev]);
+      
+      // Try to add to Convex if available (but don't fail if it's not)
+      try {
+        if (typeof addClinicalDoc === 'function') {
+          await addClinicalDoc({
+            title: metadata.title,
+            content: metadata.description || file.name,
+            category: metadata.category,
+            tags: metadata.tags,
+            isPrivate: metadata.isPrivate,
+            doctorId: formData.doctorId || undefined,
+            attachments: [objectUrl],
+          });
+        }
+      } catch (convexError) {
+        console.log("Convex not available, using local storage:", convexError);
+      }
+      
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
+      setIsUploadModalOpen(false);
+      resetForm();
+    }
+  };
+
+  // Legacy upload handler (keeping for compatibility)
   const handleUploadDocument = async () => {
     if (!formData.title || !formData.category || !uploadFile) return;
     setIsUploading(true);
+    
     try {
-      // Try Convex storage upload
-      const url: string = await generateUploadUrl({});
-      const res = await fetch(url, { method: "POST", body: uploadFile });
-      const json = await res.json();
-      const storageId = json.storageId as string;
-
-      await addClinicalDoc({
-        title: formData.title,
-        content: formData.content || uploadFile.name,
-        category: formData.category,
-        tags: formData.tags,
-        isPrivate: formData.isPrivate,
-        doctorId: formData.doctorId || undefined,
-        attachments: [storageId],
-      });
-    } catch {
-      // Fallback: store object URL locally if backend unavailable
       const now = Date.now();
       const objectUrl = URL.createObjectURL(uploadFile);
-      setLocalDocs(prev => [
-        ...prev,
-        {
-          _id: `local-${now}`,
-          _creationTime: now,
-          createdAt: now,
-          userId: 'local',
-          title: formData.title,
-          content: formData.content || uploadFile.name,
-          category: formData.category,
-          tags: [...formData.tags],
-          attachments: [objectUrl],
-          updatedAt: now,
-          doctorId: formData.doctorId || undefined,
-          isPrivate: formData.isPrivate,
-        },
-      ]);
+      
+      // Add to local documents immediately
+      const newDoc = {
+        _id: `local-${now}`,
+        _creationTime: now,
+        createdAt: now,
+        userId: 'local',
+        title: formData.title,
+        content: formData.content || `Uploaded file: ${uploadFile.name}`,
+        category: formData.category,
+        tags: [...formData.tags],
+        attachments: [objectUrl],
+        fileType: uploadFile.type,
+        fileName: uploadFile.name,
+        updatedAt: now,
+        doctorId: formData.doctorId || undefined,
+        isPrivate: formData.isPrivate,
+      };
+      
+      setLocalDocs(prev => [newDoc, ...prev]);
+      
+      // Try to add to Convex if available (but don't fail if it's not)
+      try {
+        if (typeof addClinicalDoc === 'function') {
+          await addClinicalDoc({
+            title: formData.title,
+            content: formData.content || uploadFile.name,
+            category: formData.category,
+            tags: formData.tags,
+            attachments: [objectUrl],
+            isPrivate: formData.isPrivate,
+            doctorId: formData.doctorId || undefined,
+          });
+        }
+      } catch (convexError) {
+        console.log("Convex not available, using local storage:", convexError);
+      }
+      
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Upload failed. Please try again.");
     } finally {
       setIsUploading(false);
       setIsUploadModalOpen(false);
@@ -273,9 +345,28 @@ const ClinicalDocs = () => {
     doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const consultationDocs = allDocs.filter(doc => doc.category === "Consultation");
-  const labDocs = allDocs.filter(doc => doc.category === "Lab Report");
-  const assessmentDocs = allDocs.filter(doc => doc.category === "Assessment");
+  // Map enhanced modal categories to display categories
+  const getDisplayCategory = (category: string) => {
+    switch (category) {
+      case "lab_result": return "Lab Report";
+      case "medical_record": return "Medical Record";
+      case "prescription": return "Prescription";
+      case "insurance": return "Insurance";
+      case "id_document": return "ID Document";
+      case "other": return "Other";
+      default: return category; // Fallback for legacy categories
+    }
+  };
+
+  const consultationDocs = allDocs.filter(doc => 
+    doc.category === "Consultation" || doc.category === "consultation"
+  );
+  const labDocs = allDocs.filter(doc => 
+    doc.category === "Lab Report" || doc.category === "lab_result"
+  );
+  const assessmentDocs = allDocs.filter(doc => 
+    doc.category === "Assessment" || doc.category === "assessment"
+  );
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-20 lg:pb-6">
@@ -397,102 +488,21 @@ const ClinicalDocs = () => {
                 className="pl-10"
               />
             </div>
-            <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="sm:w-auto">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Document
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Upload Clinical Document</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="up-title">Title</Label>
-                    <Input
-                      id="up-title"
-                      value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="Enter document title"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="up-category">Category</Label>
-                    <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Consultation">Consultation</SelectItem>
-                        <SelectItem value="Lab Report">Lab Report</SelectItem>
-                        <SelectItem value="Assessment">Assessment</SelectItem>
-                        <SelectItem value="Prescription">Prescription</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="up-content">Notes (optional)</Label>
-                    <Textarea
-                      id="up-content"
-                      value={formData.content}
-                      onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                      placeholder="Add any notes about this upload"
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="up-file">Select file</Label>
-                    <Input
-                      id="up-file"
-                      type="file"
-                      accept=".pdf,.png,.jpg,.jpeg,.gif,image/*,application/pdf"
-                      onChange={(e) => setUploadFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="up-tags">Tags</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="up-tags"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        placeholder="Add tags"
-                        onKeyPress={(e) => e.key === 'Enter' && addTag()}
-                      />
-                      <Button type="button" onClick={addTag} variant="outline">Add</Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="cursor-pointer">
-                          {tag}
-                          <X className="w-3 h-3 ml-1" onClick={() => removeTag(tag)} />
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="up-private"
-                      checked={formData.isPrivate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isPrivate: e.target.checked }))}
-                    />
-                    <Label htmlFor="up-private">Private document</Label>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsUploadModalOpen(false)} disabled={isUploading}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleUploadDocument} disabled={!uploadFile || isUploading}>
-                      {isUploading ? 'Uploading...' : 'Upload'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              variant="outline" 
+              className="sm:w-auto"
+              onClick={() => setIsUploadModalOpen(true)}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Document
+            </Button>
+            {/* Enhanced Upload Modal */}
+            <EnhancedClinicalDocsUploadModal
+              isOpen={isUploadModalOpen}
+              onClose={() => setIsUploadModalOpen(false)}
+              onUpload={handleEnhancedUpload}
+              isUploading={isUploading}
+            />
           </div>
         </div>
 
@@ -596,9 +606,9 @@ const ClinicalDocs = () => {
                                   <Calendar className="w-3 h-3" />
                                   {formatDate(doc.createdAt)}
                                 </span>
-                                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                                  {doc.category}
-                                </span>
+                                                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                                {getDisplayCategory(doc.category)}
+                              </span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 ml-4">
@@ -615,6 +625,76 @@ const ClinicalDocs = () => {
                               </Button>
                             </div>
                           </div>
+                          
+                          {/* Document Content */}
+                          <div className="text-sm text-gray-600 mt-2">
+                            {doc.content}
+                          </div>
+                          
+                          {/* PDF Preview for PDF files */}
+                          {doc.attachments && doc.attachments.length > 0 && (
+                            <div className="mt-3">
+                              {doc.attachments.map((attachment, index) => {
+                                // Check if it's a PDF file
+                                const isPDF = typeof attachment === 'string' && 
+                                  (attachment.includes('.pdf') || attachment.includes('application/pdf') || 
+                                   doc.fileType === 'application/pdf' || doc.fileName?.includes('.pdf'));
+                                
+                                if (isPDF) {
+                                  return (
+                                    <div key={index} className="border rounded-lg p-3 bg-gray-50">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium text-gray-700">PDF Document</span>
+                                        <a 
+                                          href={attachment} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                        >
+                                          Open PDF
+                                        </a>
+                                      </div>
+                                      {/* PDF Preview */}
+                                      <div className="w-full h-64 bg-white border rounded overflow-hidden">
+                                        <iframe
+                                          src={attachment}
+                                          className="w-full h-full"
+                                          title="PDF Preview"
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  // For other file types, show a download link
+                                  return (
+                                    <div key={index} className="mt-2">
+                                                                              <a 
+                                          href={attachment} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 text-sm underline flex items-center gap-1"
+                                        >
+                                          <FileText className="w-4 h-4" />
+                                          Download Attachment
+                                        </a>
+                                    </div>
+                                  );
+                                }
+                              })}
+                            </div>
+                          )}
+                          
+                          {/* Tags */}
+                          {doc.tags && doc.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {doc.tags.map((tag, index) => (
+                                <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          
                           {/* Removed separate tag chips at bottom as requested */}
                         </div>
                       </div>
@@ -771,6 +851,77 @@ const ClinicalDocs = () => {
                             {getPrimaryTagText(doc.tags)}
                           </Badge>
                         </div>
+                        
+                        {/* Document Content */}
+                        <div className="text-sm text-gray-600 mt-2">
+                          {doc.content}
+                        </div>
+                        
+                        {/* PDF Preview for PDF files */}
+                        {doc.attachments && doc.attachments.length > 0 && (
+                          <div className="mt-3">
+                            {console.log('Document attachments:', doc.attachments, 'File type:', doc.fileType, 'File name:', doc.fileName)}
+                            {doc.attachments.map((attachment, index) => {
+                              // Check if it's a PDF file
+                              const isPDF = typeof attachment === 'string' && 
+                                (attachment.includes('.pdf') || attachment.includes('application/pdf') || 
+                                 doc.fileType === 'application/pdf' || doc.fileName?.includes('.pdf'));
+                              
+                              if (isPDF) {
+                                return (
+                                  <div key={index} className="border rounded-lg p-3 bg-gray-50">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-medium text-gray-700">PDF Document</span>
+                                      <a 
+                                        href={attachment} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                      >
+                                        Open PDF
+                                      </a>
+                                    </div>
+                                    {/* PDF Preview */}
+                                    <div className="w-full h-64 bg-white border rounded overflow-hidden">
+                                      <iframe
+                                        src={attachment}
+                                        className="w-full h-full"
+                                        title="PDF Preview"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                // For other file types, show a download link
+                                return (
+                                  <div key={index} className="mt-2">
+                                    <a 
+                                      href={attachment} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800 text-sm underline flex items-center gap-1"
+                                    >
+                                      <FileText className="w-4 h-4" />
+                                      Download Attachment
+                                    </a>
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
+                        )}
+                        
+                        {/* Tags */}
+                        {doc.tags && doc.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {doc.tags.map((tag, index) => (
+                              <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
                         {/* Removed separate tag chips */}
                       </div>
                       <div className="flex items-center gap-2 ml-4">
