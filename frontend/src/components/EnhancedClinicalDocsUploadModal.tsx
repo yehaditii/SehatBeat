@@ -15,7 +15,7 @@ interface EnhancedClinicalDocsUploadModalProps {
     category: string;
     description?: string;
     tags: string[];
-    isPrivate: boolean;
+    priority: boolean;
   }) => Promise<void>;
   isUploading: boolean;
 }
@@ -31,7 +31,7 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [priority, setPriority] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [validation, setValidation] = useState<{
     isValid: boolean;
@@ -178,7 +178,7 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
           category,
           description: content.trim() || undefined,
           tags,
-          isPrivate,
+          priority,
         });
         
         // Reset form after successful upload
@@ -196,7 +196,7 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
     setContent("");
     setTags([]);
     setTagInput("");
-    setIsPrivate(false);
+    setPriority(false);
     setSelectedFile(null);
     setValidation({
       isValid: false,
@@ -382,15 +382,15 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
               )}
             </div>
 
-            {/* Privacy */}
+            {/* Priority */}
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                id="isPrivate"
-                checked={isPrivate}
-                onChange={(e) => setIsPrivate(e.target.checked)}
+                id="priority"
+                checked={priority}
+                onChange={(e) => setPriority(e.target.checked)}
               />
-              <Label htmlFor="isPrivate">Private document</Label>
+              <Label htmlFor="priority">Priority document</Label>
             </div>
 
             {/* Validation Messages */}

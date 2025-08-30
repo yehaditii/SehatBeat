@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,21 +24,56 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useMutation as useConvexMutation } from "convex/react";
+// import { useMutation as useConvexMutation } from "convex/react";
 import EnhancedClinicalDocsUploadModal from "@/components/EnhancedClinicalDocsUploadModal";
 import AIPDFReader from "@/components/AIPDFReader";
 
 const ClinicalDocs = () => {
+  try {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<any>(null);
   
   // Temporarily disable Convex integration to fix white screen
   const clinicalDocs: any[] = [];
-  const clinicalDocsStats = { totalDocuments: 0, thisMonth: 0, byCategory: {}, priorityItems: 0 };
+  
+  const [localDocs, setLocalDocs] = useState<any[]>([]);
+  
+  // Calculate stats from actual documents
+  const calculateStats = () => {
+    const allDocs = [...(clinicalDocs || []), ...localDocs];
+    const now = Date.now();
+    const oneMonthAgo = now - (30 * 24 * 60 * 60 * 1000);
+    
+    const totalDocuments = allDocs.length;
+    const thisMonth = allDocs.filter(doc => doc.createdAt && doc.createdAt >= oneMonthAgo).length;
+    
+    // Count by category
+    const byCategory: { [key: string]: number } = {};
+    allDocs.forEach(doc => {
+      const category = doc.category || 'Other';
+      byCategory[category] = (byCategory[category] || 0) + 1;
+    });
+    
+    // Count priority items (documents marked as priority)
+    const priorityItems = allDocs.filter(doc => doc.priority).length;
+    
+    return { totalDocuments, thisMonth, byCategory, priorityItems };
+  };
+  
+  // Use state for stats to ensure proper updates
+  const [clinicalDocsStats, setClinicalDocsStats] = useState(() => calculateStats());
+  
+  // Recalculate stats whenever documents change
+  useEffect(() => {
+    const newStats = calculateStats();
+    setClinicalDocsStats(newStats);
+    console.log("Stats updated:", newStats);
+  }, [localDocs]);
+  
   const addClinicalDoc = async (docData: any) => {
     console.log("addClinicalDoc called with:", docData);
     // This will be handled by local storage for now
@@ -55,15 +90,13 @@ const ClinicalDocs = () => {
     return null;
   };
   
-  const [localDocs, setLocalDocs] = useState<any[]>([]);
-  
   // Form state for creating/editing documents
   const [formData, setFormData] = useState({
     title: "",
     content: "",
     category: "",
     tags: [] as string[],
-    isPrivate: false,
+    priority: false,
     doctorId: "",
   });
   
@@ -72,46 +105,12 @@ const ClinicalDocs = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isAIAnalysisModalOpen, setIsAIAnalysisModalOpen] = useState(false);
   const [selectedFileForAI, setSelectedFileForAI] = useState<File | null>(null);
+  const [pdfPreviewStates, setPdfPreviewStates] = useState<{ [key: string]: boolean }>({});
 
-  // Convex storage mutations
-  const generateUploadUrl = (useConvexMutation as any)("generateUploadUrl");
+  // Convex storage mutations - temporarily disabled
+  // const generateUploadUrl = (useConvexMutation as any)("generateUploadUrl");
 
-  const handleCreateDocument = async () => {
-    if (!formData.title || !formData.content || !formData.category) return;
-    try {
-      await addClinicalDoc({
-        title: formData.title,
-        content: formData.content,
-        category: formData.category,
-        tags: formData.tags,
-        isPrivate: formData.isPrivate,
-        doctorId: formData.doctorId || undefined,
-      });
-    } catch {
-      // Fallback: create a local document so the UI works without backend/auth
-      const now = Date.now();
-      setLocalDocs(prev => [
-        ...prev,
-        {
-          _id: `local-${now}`,
-          _creationTime: now,
-          createdAt: now,
-          userId: 'local',
-          title: formData.title,
-          content: formData.content,
-          category: formData.category,
-          tags: [...formData.tags],
-          attachments: [],
-          updatedAt: now,
-          doctorId: formData.doctorId || undefined,
-          isPrivate: formData.isPrivate,
-        },
-      ]);
-    }
-    
-    setIsCreateModalOpen(false);
-    resetForm();
-  };
+
 
   const handleEditDocument = async () => {
     if (!editingDoc || !formData.title || !formData.content || !formData.category) {
@@ -127,7 +126,7 @@ const ClinicalDocs = () => {
         content: formData.content,
         category: formData.category,
         tags: formData.tags,
-        isPrivate: formData.isPrivate,
+        priority: formData.priority,
         doctorId: formData.doctorId || undefined,
       });
       console.log("Document updated successfully");
@@ -142,7 +141,7 @@ const ClinicalDocs = () => {
           content: formData.content,
           category: formData.category,
           tags: [...formData.tags],
-          isPrivate: formData.isPrivate,
+          priority: formData.priority,
           doctorId: formData.doctorId || undefined,
           updatedAt: Date.now(),
         } : d));
@@ -177,7 +176,7 @@ const ClinicalDocs = () => {
     category: string;
     description?: string;
     tags: string[];
-    isPrivate: boolean;
+    priority: boolean;
   }) => {
     setIsUploading(true);
     
@@ -201,7 +200,7 @@ const ClinicalDocs = () => {
         fileName: file.name,
         updatedAt: now,
         doctorId: formData.doctorId || undefined,
-        isPrivate: metadata.isPrivate,
+        priority: metadata.priority,
       };
       
       setLocalDocs(prev => [newDoc, ...prev]);
@@ -214,7 +213,7 @@ const ClinicalDocs = () => {
             content: metadata.description || file.name,
             category: metadata.category,
             tags: metadata.tags,
-            isPrivate: metadata.isPrivate,
+            priority: metadata.priority,
             doctorId: formData.doctorId || undefined,
             attachments: [objectUrl],
           });
@@ -257,7 +256,7 @@ const ClinicalDocs = () => {
         fileName: uploadFile.name,
         updatedAt: now,
         doctorId: formData.doctorId || undefined,
-        isPrivate: formData.isPrivate,
+        priority: formData.priority,
       };
       
       setLocalDocs(prev => [newDoc, ...prev]);
@@ -271,7 +270,7 @@ const ClinicalDocs = () => {
             category: formData.category,
             tags: formData.tags,
             attachments: [objectUrl],
-            isPrivate: formData.isPrivate,
+            priority: formData.priority,
             doctorId: formData.doctorId || undefined,
           });
         }
@@ -298,7 +297,7 @@ const ClinicalDocs = () => {
       content: doc.content,
       category: doc.category,
       tags: doc.tags || [],
-      isPrivate: doc.isPrivate,
+      priority: doc.priority,
       doctorId: doc.doctorId || "",
     });
     console.log("Form data set to:", {
@@ -306,7 +305,7 @@ const ClinicalDocs = () => {
       content: doc.content,
       category: doc.category,
       tags: doc.tags || [],
-      isPrivate: doc.isPrivate,
+      priority: doc.priority,
       doctorId: doc.doctorId || "",
     });
     setIsEditModalOpen(true);
@@ -318,7 +317,7 @@ const ClinicalDocs = () => {
       content: "",
       category: "",
       tags: [],
-      isPrivate: false,
+      priority: false,
       doctorId: "",
     });
     setTagInput("");
@@ -327,6 +326,13 @@ const ClinicalDocs = () => {
   const openAIAnalysisModal = (file: File) => {
     setSelectedFileForAI(file);
     setIsAIAnalysisModalOpen(true);
+  };
+
+  const togglePdfPreview = (docId: string) => {
+    setPdfPreviewStates(prev => ({
+      ...prev,
+      [docId]: !prev[docId]
+    }));
   };
 
   const addTag = () => {
@@ -367,6 +373,9 @@ const ClinicalDocs = () => {
     ...localDocs,
   ];
 
+  // console.log("All documents:", allDocs);
+  // console.log("Local documents:", localDocs);
+
   const filteredDocs = allDocs.filter(doc =>
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -395,6 +404,10 @@ const ClinicalDocs = () => {
     doc.category === "Assessment" || doc.category === "assessment"
   );
 
+  // console.log("Lab docs:", labDocs);
+  // console.log("Consultation docs:", consultationDocs);
+  // console.log("Assessment docs:", assessmentDocs);
+
   return (
     <div className="min-h-screen bg-background pt-20 pb-20 lg:pb-6">
       <div className="container mx-auto px-4 py-8">
@@ -415,93 +428,8 @@ const ClinicalDocs = () => {
                 Comprehensive clinical notes management with structured templates and secure sharing
               </p>
             </div>
-            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-accent text-accent-foreground shadow-medium hover:shadow-strong">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Document
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Clinical Document</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Title</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="Enter document title"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Consultation">Consultation</SelectItem>
-                        <SelectItem value="Lab Report">Lab Report</SelectItem>
-                        <SelectItem value="Assessment">Assessment</SelectItem>
-                        <SelectItem value="Prescription">Prescription</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="content">Content</Label>
-                    <Textarea
-                      id="content"
-                      value={formData.content}
-                      onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                      placeholder="Enter document content"
-                      rows={6}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tags">Tags</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="tags"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        placeholder="Add tags"
-                        onKeyPress={(e) => e.key === 'Enter' && addTag()}
-                      />
-                      <Button type="button" onClick={addTag} variant="outline">Add</Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="cursor-pointer">
-                          {tag}
-                          <X className="w-3 h-3 ml-1" onClick={() => removeTag(tag)} />
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isPrivate"
-                      checked={formData.isPrivate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isPrivate: e.target.checked }))}
-                    />
-                    <Label htmlFor="isPrivate">Private document</Label>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateDocument}>
-                      Create Document
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+
+
           </div>
 
           {/* Search and Filter */}
@@ -612,11 +540,7 @@ const ClinicalDocs = () => {
                   <p className="text-muted-foreground mb-4">
                     {searchTerm ? `No documents match "${searchTerm}"` : "Create your first clinical document to get started."}
                   </p>
-                  {!searchTerm && (
-                    <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
-                      Create Document
-                    </Button>
-                  )}
+
                 </div>
               ) : (
                 filteredDocs.map((doc) => (
@@ -673,23 +597,35 @@ const ClinicalDocs = () => {
                                     <div key={index} className="border rounded-lg p-3 bg-gray-50">
                                       <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-medium text-gray-700">PDF Document</span>
-                                        <a 
-                                          href={attachment} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-800 text-sm underline"
-                                        >
-                                          Open PDF
-                                        </a>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => togglePdfPreview(`${doc._id}-${index}`)}
+                                            className="text-xs px-2 py-1 h-7"
+                                          >
+                                            {pdfPreviewStates[`${doc._id}-${index}`] ? 'Hide Preview' : 'Show Preview'}
+                                          </Button>
+                                          <a 
+                                            href={attachment} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                          >
+                                            Open PDF
+                                          </a>
+                                        </div>
                                       </div>
                                       {/* PDF Preview */}
-                                      <div className="w-full h-64 bg-white border rounded overflow-hidden">
-                                        <iframe
-                                          src={attachment}
-                                          className="w-full h-full"
-                                          title="PDF Preview"
-                                        />
-                                      </div>
+                                      {pdfPreviewStates[`${doc._id}-${index}`] && (
+                                        <div className="w-full h-64 bg-white border rounded overflow-hidden">
+                                          <iframe
+                                            src={attachment}
+                                            className="w-full h-full"
+                                            title="PDF Preview"
+                                          />
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 } else {
@@ -739,9 +675,7 @@ const ClinicalDocs = () => {
                 <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No consultation documents</h3>
                 <p className="text-muted-foreground mb-4">Create your first consultation document to get started.</p>
-                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
-                  Create Consultation
-                </Button>
+
               </div>
             ) : (
               consultationDocs.map((doc) => (
@@ -796,9 +730,7 @@ const ClinicalDocs = () => {
                 <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No lab reports</h3>
                 <p className="text-muted-foreground mb-4">Create your lab reports for easy access and tracking.</p>
-                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
-                  Create Lab Report
-                </Button>
+
               </div>
             ) : (
               labDocs.map((doc) => (
@@ -853,9 +785,7 @@ const ClinicalDocs = () => {
                 <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No assessments</h3>
                 <p className="text-muted-foreground mb-4">Assessment documents will appear here once created.</p>
-                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-accent text-accent-foreground">
-                  Create Assessment
-                </Button>
+
               </div>
             ) : (
               assessmentDocs.map((doc) => (
@@ -900,23 +830,35 @@ const ClinicalDocs = () => {
                                   <div key={index} className="border rounded-lg p-3 bg-gray-50">
                                     <div className="flex items-center justify-between mb-2">
                                       <span className="text-sm font-medium text-gray-700">PDF Document</span>
-                                      <a 
-                                        href={attachment} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 text-sm underline"
-                                      >
-                                        Open PDF
-                                      </a>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => togglePdfPreview(`${doc._id}-${index}`)}
+                                          className="text-xs px-2 py-1 h-7"
+                                        >
+                                          {pdfPreviewStates[`${doc._id}-${index}`] ? 'Hide Preview' : 'Show Preview'}
+                                        </Button>
+                                        <a 
+                                          href={attachment} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                        >
+                                          Open PDF
+                                        </a>
+                                      </div>
                                     </div>
                                     {/* PDF Preview */}
-                                    <div className="w-full h-64 bg-white border rounded overflow-hidden">
-                                      <iframe
-                                        src={attachment}
-                                        className="w-full h-full"
-                                        title="PDF Preview"
-                                      />
-                                    </div>
+                                    {pdfPreviewStates[`${doc._id}-${index}`] && (
+                                      <div className="w-full h-64 bg-white border rounded overflow-hidden">
+                                        <iframe
+                                          src={attachment}
+                                          className="w-full h-full"
+                                          title="PDF Preview"
+                                        />
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               } else {
@@ -1102,11 +1044,11 @@ const ClinicalDocs = () => {
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                id="edit-isPrivate"
-                checked={formData.isPrivate}
-                onChange={(e) => setFormData(prev => ({ ...prev, isPrivate: e.target.checked }))}
+                id="edit-priority"
+                checked={formData.priority}
+                onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.checked }))}
               />
-              <Label htmlFor="edit-isPrivate">Private document</Label>
+              <Label htmlFor="edit-priority">Priority document</Label>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => {
@@ -1129,6 +1071,25 @@ const ClinicalDocs = () => {
       </Dialog>
     </div>
   );
+  } catch (error) {
+    console.error("Error in ClinicalDocs component:", error);
+    return (
+      <div className="min-h-screen bg-background pt-20 pb-20 lg:pb-6">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
+            <p className="text-muted-foreground">Please refresh the page and try again.</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default ClinicalDocs;
