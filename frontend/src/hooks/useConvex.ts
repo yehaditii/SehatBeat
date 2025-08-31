@@ -5,8 +5,11 @@ import { useAuth } from "@clerk/clerk-react";
 export const useCurrentUser = () => {
   const { userId } = useAuth();
   
-  const user = useQuery("getUserProfile", 
-    userId ? { clerkId: userId } : "skip"
+  // Temporary fix: Use test user if no Clerk userId
+  const testUserId = userId || "test-user-123";
+  
+  const user = useQuery("myFunctions:getUserProfile", 
+    testUserId ? { clerkId: testUserId } : "skip"
   );
   
   return user;
@@ -14,7 +17,7 @@ export const useCurrentUser = () => {
 
 // Custom hook for medicines
 export const useMedicines = (category?: string, search?: string) => {
-  return useQuery("getMedicines", { category, search });
+  return useQuery("myFunctions:getMedicines", { category, search });
 };
 
 // Custom hook for cart
@@ -22,18 +25,23 @@ export const useCart = () => {
   const { userId } = useAuth();
   const user = useCurrentUser();
   
+  // Temporary fix: Use test user ID if no authenticated user
+  const effectiveUserId = user?._id || "kd76tt2k295wp3r6r46r6acxv17pqxy0";
+  
+  console.log("useCart Debug:", { userId, user, effectiveUserId });
+  
   const cartItems = useQuery(
-    "getCartItems",
-    user?._id ? { userId: user._id } : "skip"
+    "myFunctions:getCartItems",
+    effectiveUserId ? { userId: effectiveUserId } : "skip"
   );
   
-  const addToCart = useMutation("addToCart");
-  const updateCartItem = useMutation("updateCartItem");
-  const removeFromCart = useMutation("removeFromCart");
+  const addToCart = useMutation("myFunctions:addToCart");
+  const updateCartItem = useMutation("myFunctions:updateCartItem");
+  const removeFromCart = useMutation("myFunctions:removeFromCart");
   
   const addItemToCart = async (medicineId: string, quantity: number) => {
-    if (!user?._id) return;
-    await addToCart({ userId: user._id, medicineId: medicineId as Id<"medicines">, quantity });
+    if (!effectiveUserId) return;
+    await addToCart({ userId: effectiveUserId, medicineId: medicineId as Id<"medicines">, quantity });
   };
   
   const updateItemQuantity = async (cartItemId: string, quantity: number) => {
@@ -50,7 +58,7 @@ export const useCart = () => {
     updateItemQuantity,
     removeItemFromCart,
     isLoading: user === undefined,
-    userLoaded: !!user?._id,
+    userLoaded: !!effectiveUserId,
   };
 };
 
@@ -60,13 +68,13 @@ export const useReminders = (activeOnly = true) => {
   const user = useCurrentUser();
   
   const reminders = useQuery(
-    "getReminders",
+    "myFunctions:getReminders",
     user?._id ? { userId: user._id, activeOnly } : "skip"
   );
   
-  const createReminder = useMutation("createReminder");
-  const updateReminder = useMutation("updateReminder");
-  const deleteReminder = useMutation("deleteReminder");
+  const createReminder = useMutation("myFunctions:createReminder");
+  const updateReminder = useMutation("myFunctions:updateReminder");
+  const deleteReminder = useMutation("myFunctions:deleteReminder");
   
   const addReminder = async (reminderData: {
     type: "medication" | "appointment" | "lab_test";
@@ -105,12 +113,12 @@ export const useLabTests = () => {
   const user = useCurrentUser();
   
   const labTests = useQuery(
-    "getLabTests",
+    "myFunctions:getLabTests",
     user?._id ? { userId: user._id } : "skip"
   );
   
-  const createLabTest = useMutation("createLabTest");
-  const updateLabTest = useMutation("updateLabTest");
+  const createLabTest = useMutation("myFunctions:createLabTest");
+  const updateLabTest = useMutation("myFunctions:updateLabTest");
   
   const addLabTest = async (labTestData: {
     testName: string;
@@ -138,7 +146,7 @@ export const useLabTests = () => {
 
 // Custom hook for doctors
 export const useDoctors = (specialization?: string, location?: string) => {
-  return useQuery("getDoctors", { specialization, location });
+  return useQuery("myFunctions:getDoctors", { specialization, location });
 };
 
 // Custom hook for clinical documents
@@ -151,23 +159,23 @@ export const useClinicalDocs = () => {
   console.log("useClinicalDocs - user?._id:", user?._id);
   
   const clinicalDocs = useQuery(
-    "getClinicalDocs",
+    "myFunctions:getClinicalDocs",
     user?._id ? { userId: user._id } : "skip"
   );
   
   const clinicalDocsStats = useQuery(
-    "getClinicalDocStats",
+    "myFunctions:getClinicalDocStats",
     user?._id ? { userId: user._id } : "skip"
   );
   
   const getClinicalDocById = useQuery(
-    "getClinicalDocById",
+    "myFunctions:getClinicalDocById",
     "skip"
   );
   
-  const createClinicalDoc = useMutation("createClinicalDoc");
-  const updateClinicalDoc = useMutation("updateClinicalDoc");
-  const deleteClinicalDoc = useMutation("deleteClinicalDoc");
+  const createClinicalDoc = useMutation("myFunctions:createClinicalDoc");
+  const updateClinicalDoc = useMutation("myFunctions:updateClinicalDoc");
+  const deleteClinicalDoc = useMutation("myFunctions:deleteClinicalDoc");
   
   const addClinicalDoc = async (docData: {
     title: string;
@@ -248,12 +256,12 @@ export const useConversation = () => {
   const user = useCurrentUser();
   
   const conversation = useQuery(
-    "getConversation",
+    "myFunctions:getConversation",
     user?._id ? { userId: user._id } : "skip"
   );
   
-  const createConversation = useMutation("createConversation");
-  const addMessage = useMutation("addMessage");
+  const createConversation = useMutation("myFunctions:createConversation");
+  const addMessage = useMutation("myFunctions:addMessage");
   
   const startConversation = async () => {
     if (!user?._id) return;
@@ -283,12 +291,12 @@ export const useAppointments = () => {
   const user = useCurrentUser();
   
   const appointments = useQuery(
-    "getAppointments",
+    "myFunctions:getAppointments",
     user?._id ? { userId: user._id } : "skip"
   );
   
-  const createAppointment = useMutation("createAppointment");
-  const updateAppointment = useMutation("updateAppointment");
+  const createAppointment = useMutation("myFunctions:createAppointment");
+  const updateAppointment = useMutation("myFunctions:updateAppointment");
   
   const bookAppointment = async (appointmentData: {
     doctorId: string;
@@ -318,11 +326,11 @@ export const useOrders = () => {
   const user = useCurrentUser();
   
   const orders = useQuery(
-    "getOrders",
+    "myFunctions:getOrders",
     user?._id ? { userId: user._id } : "skip"
   );
   
-  const createOrder = useMutation("createOrder");
+  const createOrder = useMutation("myFunctions:createOrder");
   
   const placeOrder = async (orderData: {
     items: Array<{

@@ -6,7 +6,7 @@ import { useState } from "react";
 export const DatabaseCleanup = () => {
   const [isCleaning, setIsCleaning] = useState(false);
   const [result, setResult] = useState<string>("");
-  const cleanupDuplicateProfiles = useMutation("cleanupDuplicateProfiles");
+  const cleanupDuplicateProfiles = useMutation("myFunctions:cleanupDuplicateProfiles");
 
   const handleCleanup = async () => {
     setIsCleaning(true);

@@ -70,7 +70,7 @@ const App = () => {
   // Render with Clerk authentication and Convex
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-            <ConvexProviderWrapper>
+      <ConvexProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <Toaster />

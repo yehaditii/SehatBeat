@@ -76,14 +76,13 @@ http.route({
         tags,
         isPrivate,
         metadata: undefined,
-        accessControl: undefined,
       });
 
       return new Response(
         JSON.stringify({
           success: true,
-          documentId: result.documentId,
-          message: result.message,
+          documentId: result,
+          message: "Document uploaded successfully",
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
@@ -116,8 +115,7 @@ http.route({
 
       // Get document download URL
       const downloadInfo = await ctx.runQuery(api.documents.getDocumentDownloadUrl, {
-        documentId: documentId as any,
-        userId: userId as any,
+        storageId: documentId as any,
       });
 
       if (!downloadInfo) {
@@ -131,7 +129,7 @@ http.route({
       return new Response(null, {
         status: 302,
         headers: {
-          Location: downloadInfo.downloadUrl,
+          Location: downloadInfo,
         },
       });
     } catch (error) {
@@ -164,7 +162,6 @@ http.route({
       // Get document info
       const document = await ctx.runQuery(api.documents.getDocumentById, {
         documentId: documentId as any,
-        userId: userId as any,
       });
 
       if (!document) {
