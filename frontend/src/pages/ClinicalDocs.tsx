@@ -29,7 +29,6 @@ import EnhancedClinicalDocsUploadModal from "@/components/EnhancedClinicalDocsUp
 import AIPDFReader from "@/components/AIPDFReader";
 
 const ClinicalDocs = () => {
-  try {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
 
@@ -73,7 +72,7 @@ const ClinicalDocs = () => {
     setClinicalDocsStats(newStats);
     console.log("Stats updated:", newStats);
   }, [localDocs]);
-  
+
   const addClinicalDoc = async (docData: any) => {
     console.log("addClinicalDoc called with:", docData);
     // This will be handled by local storage for now
@@ -81,12 +80,36 @@ const ClinicalDocs = () => {
   };
   const updateDoc = async (docId: string, updates: any) => {
     console.log("updateDoc called with:", docId, updates);
-    // This will be handled by local storage for now
+    
+    // Handle local document updates
+    if (String(docId).startsWith('local-')) {
+      console.log("Updating local document");
+      setLocalDocs(prev => prev.map(d => d._id === docId ? {
+        ...d,
+        ...updates,
+        updatedAt: Date.now(),
+      } : d));
+      console.log("Local document updated successfully");
+      return true;
+    }
+    
+    // This will be handled by Convex when it's connected
+    console.log("Remote document update not implemented yet");
     return null;
   };
   const deleteDoc = async (docId: string) => {
     console.log("deleteDoc called with:", docId);
-    // This will be handled by local storage for now
+    
+    // Handle local document deletion
+    if (String(docId).startsWith('local-')) {
+      console.log("Deleting local document");
+      setLocalDocs(prev => prev.filter(d => d._id !== docId));
+      console.log("Local document deleted successfully");
+      return true;
+    }
+    
+    // This will be handled by Convex when it's connected
+    console.log("Remote document deletion not implemented yet");
     return null;
   };
   
@@ -107,21 +130,35 @@ const ClinicalDocs = () => {
   const [selectedFileForAI, setSelectedFileForAI] = useState<File | null>(null);
   const [pdfPreviewStates, setPdfPreviewStates] = useState<{ [key: string]: boolean }>({});
 
+  // Debug form data changes
+  useEffect(() => {
+    console.log("Form data changed:", formData);
+  }, [formData]);
+
   // Convex storage mutations - temporarily disabled
   // const generateUploadUrl = (useConvexMutation as any)("generateUploadUrl");
 
 
 
   const handleEditDocument = async () => {
+    console.log("handleEditDocument called with formData:", formData);
+    console.log("editingDoc:", editingDoc);
+    
     if (!editingDoc || !formData.title || !formData.content || !formData.category) {
-      console.log("Validation failed:", { editingDoc, formData });
+      console.log("Validation failed:", { 
+        editingDoc: !!editingDoc, 
+        title: !!formData.title, 
+        content: !!formData.content, 
+        category: !!formData.category,
+        formData 
+      });
       return;
     }
     
     console.log("Updating document:", editingDoc._id, formData);
     
     try {
-      await updateDoc(editingDoc._id, {
+      const result = await updateDoc(editingDoc._id, {
         title: formData.title,
         content: formData.content,
         category: formData.category,
@@ -129,28 +166,17 @@ const ClinicalDocs = () => {
         priority: formData.priority,
         doctorId: formData.doctorId || undefined,
       });
-      console.log("Document updated successfully");
-    } catch (error) {
-      console.log("Update failed, checking if local document:", error);
-      // Fallback update for local docs
-      if (String(editingDoc._id).startsWith('local-')) {
-        console.log("Updating local document");
-        setLocalDocs(prev => prev.map(d => d._id === editingDoc._id ? {
-          ...d,
-          title: formData.title,
-          content: formData.content,
-          category: formData.category,
-          tags: [...formData.tags],
-          priority: formData.priority,
-          doctorId: formData.doctorId || undefined,
-          updatedAt: Date.now(),
-        } : d));
-        console.log("Local document updated successfully");
+      
+      if (result) {
+        console.log("Document updated successfully");
       } else {
-        console.error("Failed to update remote document:", error);
-        // You might want to show an error message to the user here
-        return; // Don't close the modal if the update failed
+        console.log("Update not implemented for this document type");
+        // For now, just close the modal even if update isn't implemented
       }
+    } catch (error) {
+      console.error("Update failed:", error);
+      // Don't close the modal if the update failed
+      return;
     }
     
     setIsEditModalOpen(false);
@@ -161,12 +187,39 @@ const ClinicalDocs = () => {
   const handleDeleteDocument = async (docId: string) => {
     if (confirm("Are you sure you want to delete this document?")) {
       try {
-        await deleteDoc(docId);
-      } catch {
+        const result = await deleteDoc(docId);
+        if (result) {
+          console.log("Document deleted successfully");
+        } else {
+          console.log("Delete not implemented for this document type");
+        }
+      } catch (error) {
+        console.error("Delete failed:", error);
+        // Fallback: try to delete from local docs if it's a local document
         if (String(docId).startsWith('local-')) {
           setLocalDocs(prev => prev.filter(d => d._id !== docId));
+          console.log("Document deleted from local storage as fallback");
         }
       }
+    }
+  };
+
+  // Toggle document priority
+  const togglePriority = async (docId: string) => {
+    try {
+      const doc = [...(clinicalDocs || []), ...localDocs].find(d => d._id === docId);
+      if (!doc) return;
+
+      const newPriority = !doc.priority;
+      const result = await updateDoc(docId, { priority: newPriority });
+      
+      if (result) {
+        console.log("Priority toggled successfully");
+      } else {
+        console.log("Priority toggle not implemented for this document type");
+      }
+    } catch (error) {
+      console.error("Priority toggle failed:", error);
     }
   };
 
@@ -291,23 +344,32 @@ const ClinicalDocs = () => {
 
   const openEditModal = (doc: any) => {
     console.log("Opening edit modal for document:", doc);
+    console.log("Document category:", doc.category);
+    
+    // Map the category to the correct internal value if needed
+    let mappedCategory = doc.category;
+    if (doc.category === "Medical Record") mappedCategory = "medical_record";
+    if (doc.category === "Lab Report") mappedCategory = "lab_result";
+    if (doc.category === "Prescription") mappedCategory = "prescription";
+    
+    console.log("Mapped category:", mappedCategory);
+    
     setEditingDoc(doc);
-    setFormData({
+    const formDataToSet = {
       title: doc.title,
       content: doc.content,
-      category: doc.category,
+      category: mappedCategory,
       tags: doc.tags || [],
       priority: doc.priority,
       doctorId: doc.doctorId || "",
-    });
-    console.log("Form data set to:", {
-      title: doc.title,
-      content: doc.content,
-      category: doc.category,
-      tags: doc.tags || [],
-      priority: doc.priority,
-      doctorId: doc.doctorId || "",
-    });
+    };
+    
+    setFormData(formDataToSet);
+    console.log("Form data set to:", formDataToSet);
+    
+    // Reset tag input when opening edit modal
+    setTagInput("");
+    
     setIsEditModalOpen(true);
   };
 
@@ -376,7 +438,16 @@ const ClinicalDocs = () => {
   // console.log("All documents:", allDocs);
   // console.log("Local documents:", localDocs);
 
-  const filteredDocs = allDocs.filter(doc =>
+  // Sort documents: priority first, then by creation date
+  const sortedDocs = allDocs.sort((a, b) => {
+    // Priority documents first
+    if (a.priority && !b.priority) return -1;
+    if (!a.priority && b.priority) return 1;
+    // Then by creation date (newest first)
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  const filteredDocs = sortedDocs.filter(doc =>
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -389,24 +460,25 @@ const ClinicalDocs = () => {
       case "prescription": return "Prescription";
       case "insurance": return "Insurance";
       case "id_document": return "ID Document";
-      case "other": return "Other";
-      default: return category; // Fallback for legacy categories
+      case "Consultation": return "Medical Record"; // Legacy category mapping
+      case "Assessment": return "Prescription"; // Legacy category mapping
+      default: return category; // Fallback for other categories
     }
   };
 
-  const consultationDocs = allDocs.filter(doc => 
-    doc.category === "Consultation" || doc.category === "consultation"
+  const medicalRecordDocs = allDocs.filter(doc => 
+    doc.category === "Medical Record" || doc.category === "medical_record" || doc.category === "Consultation"
   );
   const labDocs = allDocs.filter(doc => 
     doc.category === "Lab Report" || doc.category === "lab_result"
   );
-  const assessmentDocs = allDocs.filter(doc => 
-    doc.category === "Assessment" || doc.category === "assessment"
+  const prescriptionDocs = allDocs.filter(doc => 
+    doc.category === "Prescription" || doc.category === "prescription" || doc.category === "Assessment"
   );
 
   // console.log("Lab docs:", labDocs);
-  // console.log("Consultation docs:", consultationDocs);
-  // console.log("Assessment docs:", assessmentDocs);
+  // console.log("Medical Record docs:", medicalRecordDocs);
+  // console.log("Prescription docs:", prescriptionDocs);
 
   return (
     <div className="min-h-screen bg-background pt-20 pb-20 lg:pb-6">
@@ -463,13 +535,15 @@ const ClinicalDocs = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                      <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="all">All Documents</TabsTrigger>
-              <TabsTrigger value="consultation">Consultations</TabsTrigger>
-              <TabsTrigger value="lab">Lab Reports</TabsTrigger>
-              <TabsTrigger value="assessment">Assessments</TabsTrigger>
-              <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
-            </TabsList>
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="all">All Documents</TabsTrigger>
+            <TabsTrigger value="priority">⭐ Priority</TabsTrigger>
+            <TabsTrigger value="medical-record">Medical Records</TabsTrigger>
+            <TabsTrigger value="lab">Lab Reports</TabsTrigger>
+            <TabsTrigger value="prescription">Prescriptions</TabsTrigger>
+            <TabsTrigger value="insurance" disabled className="opacity-50 cursor-not-allowed">Insurance 🔒</TabsTrigger>
+            <TabsTrigger value="id-document" disabled className="opacity-50 cursor-not-allowed">ID Documents 🔒</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="all" className="space-y-4">
             {/* Stats Cards */}
@@ -525,7 +599,7 @@ const ClinicalDocs = () => {
                       </p>
                       <p className="text-sm text-muted-foreground">Priority Items</p>
                     </div>
-                    <Star className="w-8 h-8 text-orange-500/60" />
+                    <Star className="w-8 h-8 text-white/80" />
                   </div>
                 </CardContent>
               </Card>
@@ -544,31 +618,46 @@ const ClinicalDocs = () => {
                 </div>
               ) : (
                 filteredDocs.map((doc) => (
-                  <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
+                  <Card key={doc._id} className={`hover:shadow-medium transition-all duration-300 ${
+                    doc.priority ? 'border-2 border-yellow-300 bg-yellow-50/30' : ''
+                  }`}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 space-y-3">
                           <div className="flex items-start justify-between">
                             <div>
-                              <h3 className="text-lg font-semibold text-foreground mb-1">
-                                {doc.title}
-                              </h3>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  {formatDate(doc.createdAt)}
-                                </span>
-                                                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                                                          <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                              {doc.priority && <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
+                              {doc.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatDate(doc.createdAt)}
+                              </span>
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                                 {getDisplayCategory(doc.category)}
                               </span>
-                              </div>
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
                               <Badge 
                                 variant={getPriorityColor(doc.tags)}
                               >
                                 {getPrimaryTagText(doc.tags)}
                               </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => togglePriority(doc._id)}
+                                className={doc.priority ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" : "text-gray-400 hover:text-yellow-600 hover:bg-yellow-50"}
+                              >
+                                {doc.priority ? (
+                                  <Star className="w-4 h-4 fill-yellow-500" />
+                                ) : (
+                                  <Star className="w-4 h-4" />
+                                )}
+                              </Button>
                               <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -669,23 +758,167 @@ const ClinicalDocs = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="consultation" className="space-y-4">
-            {consultationDocs.length === 0 ? (
+          {/* Priority Documents Tab */}
+          <TabsContent value="priority" className="space-y-4">
+            {filteredDocs.filter(doc => doc.priority).length === 0 ? (
               <div className="text-center py-12">
-                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No consultation documents</h3>
-                <p className="text-muted-foreground mb-4">Create your first consultation document to get started.</p>
-
+                <Star className="w-16 h-16 mx-auto text-yellow-500 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No priority documents</h3>
+                <p className="text-muted-foreground mb-4">Mark documents as priority to see them here.</p>
               </div>
             ) : (
-              consultationDocs.map((doc) => (
-                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
+              filteredDocs.filter(doc => doc.priority).map((doc) => (
+                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300 border-2 border-yellow-300 bg-yellow-50/30">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-3">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                            <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                              {doc.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatDate(doc.createdAt)}
+                              </span>
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                                {getDisplayCategory(doc.category)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <Badge 
+                              variant={getPriorityColor(doc.tags)}
+                            >
+                              {getPrimaryTagText(doc.tags)}
+                            </Badge>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => togglePriority(doc._id)}
+                              className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100"
+                            >
+                              <Star className="w-4 h-4 fill-yellow-500" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Document Content */}
+                        <div className="text-sm text-gray-600 mt-2">
+                          {doc.content}
+                        </div>
+                        
+                        {/* PDF Preview for PDF files */}
+                        {doc.attachments && doc.attachments.length > 0 && (
+                          <div className="mt-3">
+                            {doc.attachments.map((attachment, index) => {
+                              // Check if it's a PDF file
+                              const isPDF = typeof attachment === 'string' && 
+                                (attachment.includes('.pdf') || attachment.includes('application/pdf') || 
+                                 doc.fileType === 'application/pdf' || doc.fileName?.includes('.pdf'));
+                              
+                              if (isPDF) {
+                                return (
+                                  <div key={index} className="border rounded-lg p-3 bg-gray-50">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-medium text-gray-700">PDF Document</span>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => togglePdfPreview(`${doc._id}-${index}`)}
+                                          className="text-xs px-2 py-1 h-7"
+                                        >
+                                          {pdfPreviewStates[`${doc._id}-${index}`] ? 'Hide Preview' : 'Show Preview'}
+                                        </Button>
+                                        <a 
+                                          href={attachment} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                        >
+                                          Open PDF
+                                        </a>
+                                      </div>
+                                    </div>
+                                    {/* PDF Preview */}
+                                    {pdfPreviewStates[`${doc._id}-${index}`] && (
+                                      <div className="w-full h-64 bg-white border rounded overflow-hidden">
+                                        <iframe
+                                          src={attachment}
+                                          className="w-full h-full"
+                                          title="PDF Preview"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              } else {
+                                // For other file types, show a download link
+                                return (
+                                  <div key={index} className="mt-2">
+                                    <a 
+                                      href={attachment} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800 text-sm underline flex items-center gap-1"
+                                    >
+                                      <FileText className="w-5 h-5" />
+                                      Download Attachment
+                                    </a>
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
+                        )}
+                        
+                        {/* Tags */}
+                        {doc.tags && doc.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {doc.tags.map((tag, index) => (
+                              <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="medical-record" className="space-y-4">
+            {medicalRecordDocs.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No medical record documents</h3>
+                <p className="text-muted-foreground mb-4">Create your first medical record document to get started.</p>
+
+              </div>
+            ) : (
+              medicalRecordDocs.map((doc) => (
+                <Card key={doc._id} className={`hover:shadow-medium transition-all duration-300 ${
+                  doc.priority ? 'border-2 border-yellow-300 bg-yellow-50/30' : ''
+                }`}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                              {doc.priority && <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
                               {doc.title}
                             </h3>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -699,6 +932,18 @@ const ClinicalDocs = () => {
                             <Badge variant={getPriorityColor(doc.tags)}>
                               {getPrimaryTagText(doc.tags)}
                             </Badge>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => togglePriority(doc._id)}
+                              className={doc.priority ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" : "text-gray-400 hover:text-yellow-600 hover:bg-yellow-50"}
+                            >
+                              {doc.priority ? (
+                                <Star className="w-4 h-4 fill-yellow-500" />
+                                ) : (
+                                <Star className="w-4 h-4" />
+                              )}
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -708,14 +953,6 @@ const ClinicalDocs = () => {
                           </div>
                         </div>
                         {/* Removed separate tag chips */}
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -734,13 +971,78 @@ const ClinicalDocs = () => {
               </div>
             ) : (
               labDocs.map((doc) => (
-                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
+                <Card key={doc._id} className={`hover:shadow-medium transition-all duration-300 ${
+                  doc.priority ? 'border-2 border-yellow-300 bg-yellow-50/30' : ''
+                }`}>
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-3">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                            <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                              {doc.priority && <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
+                              {doc.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-4" />
+                                {formatDate(doc.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <Badge variant={getPriorityColor(doc.tags)}>
+                              {getPrimaryTagText(doc.tags)}
+                            </Badge>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => togglePriority(doc._id)}
+                              className={doc.priority ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" : "text-gray-400 hover:text-yellow-600 hover:bg-yellow-50"}
+                            >
+                              {doc.priority ? (
+                                <Star className="w-4 h-4 fill-yellow-500" />
+                                ) : (
+                                <Star className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Removed separate tag chips */}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="prescription" className="space-y-4">
+            {prescriptionDocs.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No prescription documents</h3>
+                <p className="text-muted-foreground mb-4">Prescription documents will appear here once created.</p>
+
+              </div>
+            ) : (
+              prescriptionDocs.map((doc) => (
+                <Card key={doc._id} className={`hover:shadow-medium transition-all duration-300 ${
+                  doc.priority ? 'border-2 border-yellow-300 bg-yellow-50/30' : ''
+                }`}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                              {doc.priority && <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
                               {doc.title}
                             </h3>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -754,6 +1056,18 @@ const ClinicalDocs = () => {
                             <Badge variant={getPriorityColor(doc.tags)}>
                               {getPrimaryTagText(doc.tags)}
                             </Badge>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => togglePriority(doc._id)}
+                              className={doc.priority ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" : "text-gray-400 hover:text-yellow-600 hover:bg-yellow-50"}
+                            >
+                              {doc.priority ? (
+                                <Star className="w-4 h-4 fill-yellow-500" />
+                                ) : (
+                                <Star className="w-4 h-4" />
+                              )}
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -761,53 +1075,6 @@ const ClinicalDocs = () => {
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
-                        </div>
-                        {/* Removed separate tag chips */}
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc._id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="assessment" className="space-y-4">
-            {assessmentDocs.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No assessments</h3>
-                <p className="text-muted-foreground mb-4">Assessment documents will appear here once created.</p>
-
-              </div>
-            ) : (
-              assessmentDocs.map((doc) => (
-                <Card key={doc._id} className="hover:shadow-medium transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold text-foreground mb-1">
-                              {doc.title}
-                            </h3>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {formatDate(doc.createdAt)}
-                              </span>
-                            </div>
-                          </div>
-                          <Badge variant={getPriorityColor(doc.tags)}>
-                            {getPrimaryTagText(doc.tags)}
-                          </Badge>
                         </div>
                         
                         {/* Document Content */}
@@ -895,6 +1162,18 @@ const ClinicalDocs = () => {
                         {/* Removed separate tag chips */}
                       </div>
                       <div className="flex items-center gap-2 ml-4">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => togglePriority(doc._id)}
+                          className={doc.priority ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100" : "text-gray-400 hover:text-yellow-600 hover:bg-yellow-50"}
+                        >
+                          {doc.priority ? (
+                            <Star className="w-4 h-4 fill-yellow-500" />
+                            ) : (
+                            <Star className="w-4 h-4" />
+                          )}
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEditModal(doc)}>
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -958,6 +1237,32 @@ const ClinicalDocs = () => {
               </div>
             </div>
           </TabsContent>
+
+          {/* Insurance Tab - Locked */}
+          <TabsContent value="insurance" className="space-y-4">
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto text-gray-400 mb-4 flex items-center justify-center">
+                <span className="text-4xl">🛡️</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-400 mb-4">Insurance Documents</h3>
+              <p className="text-gray-500 mb-6 max-w-2xl mx-auto">
+                This feature is coming soon! Insurance document management will be available in a future update.
+              </p>
+            </div>
+          </TabsContent>
+
+          {/* ID Documents Tab - Locked */}
+          <TabsContent value="id-document" className="space-y-4">
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto text-gray-400 mb-4 flex items-center justify-center">
+                <span className="text-4xl">🆔</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-400 mb-4">ID Documents</h3>
+              <p className="text-gray-500 mb-6 max-w-2xl mx-auto">
+                This feature is coming soon! ID document management will be available in a future update.
+              </p>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1002,11 +1307,11 @@ const ClinicalDocs = () => {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Consultation">Consultation</SelectItem>
-                  <SelectItem value="Lab Report">Lab Report</SelectItem>
-                  <SelectItem value="Assessment">Assessment</SelectItem>
-                  <SelectItem value="Prescription">Prescription</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="medical_record"> Medical Record</SelectItem>
+                  <SelectItem value="lab_result"> Lab Report</SelectItem>
+                  <SelectItem value="prescription"> Prescription</SelectItem>
+                  <SelectItem value="insurance" disabled>Insurance 🔒</SelectItem>
+                  <SelectItem value="id_document" disabled>ID Document 🔒</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1071,25 +1376,6 @@ const ClinicalDocs = () => {
       </Dialog>
     </div>
   );
-  } catch (error) {
-    console.error("Error in ClinicalDocs component:", error);
-    return (
-      <div className="min-h-screen bg-background pt-20 pb-20 lg:pb-6">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
-            <p className="text-muted-foreground">Please refresh the page and try again.</p>
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="mt-4"
-            >
-              Refresh Page
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 };
 
 export default ClinicalDocs;

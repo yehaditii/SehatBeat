@@ -50,7 +50,6 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
     lab_result: <Microscope className="w-4 h-4" />,
     insurance: <FileText className="w-4 h-4" />,
     id_document: <File className="w-4 h-4" />,
-    other: <FileText className="w-4 h-4" />,
   };
 
   // Category display names
@@ -58,10 +57,12 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
     medical_record: "Medical Record",
     prescription: "Prescription",
     lab_result: "Lab Report",
-    insurance: "Insurance",
-    id_document: "ID Document",
-    other: "Other",
+    insurance: "Insurance 🔒",
+    id_document: "ID Document 🔒",
   };
+
+  // Locked categories that cannot be selected
+  const lockedCategories = ["insurance", "id_document"];
 
   // Validate form and provide smart suggestions
   const validateForm = useCallback(() => {
@@ -311,6 +312,10 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
                 Category *
               </Label>
               <Select value={category} onValueChange={(value) => {
+                // Prevent selection of locked categories
+                if (lockedCategories.includes(value)) {
+                  return;
+                }
                 setCategory(value);
                 setTimeout(() => validateForm(), 100);
               }}>
@@ -319,10 +324,13 @@ const EnhancedClinicalDocsUploadModal: React.FC<EnhancedClinicalDocsUploadModalP
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(categoryNames).map(([key, name]) => (
-                    <SelectItem key={key} value={key}>
+                    <SelectItem key={key} value={key} disabled={lockedCategories.includes(key)}>
                       <div className="flex items-center gap-2">
                         {categoryIcons[key]}
                         {name}
+                        {lockedCategories.includes(key) && (
+                          <Badge variant="secondary" className="ml-2">Locked</Badge>
+                        )}
                       </div>
                     </SelectItem>
                   ))}

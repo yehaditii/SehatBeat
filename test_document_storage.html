@@ -112,32 +112,28 @@
         <h1>📁 Document Storage System Test</h1>
         <p>Test the document upload, download, and management functionality.</p>
 
-        <div class="category-info">
-            <div class="category-card">
-                <h4>🏥 Medical Records</h4>
-                <p>Patient history, diagnoses, treatment plans</p>
-            </div>
-            <div class="category-card">
-                <h4>💊 Prescriptions</h4>
-                <p>Medication prescriptions and dosage instructions</p>
-            </div>
-            <div class="category-card">
-                <h4>🔬 Lab Results</h4>
-                <p>Test results, blood work, imaging reports</p>
-            </div>
-            <div class="category-card">
-                <h4>🛡️ Insurance</h4>
-                <p>Insurance cards, policy documents, claims</p>
-            </div>
-            <div class="category-card">
-                <h4>🆔 ID Documents</h4>
-                <p>Driver's license, passport, government IDs</p>
-            </div>
-            <div class="category-card">
-                <h4>📄 Other</h4>
-                <p>Miscellaneous medical documents</p>
-            </div>
-        </div>
+                 <div class="category-info">
+             <div class="category-card">
+                 <h4>🏥 Medical Records</h4>
+                 <p>Patient history, diagnoses, treatment plans</p>
+             </div>
+             <div class="category-card">
+                 <h4>💊 Prescriptions</h4>
+                 <p>Medication prescriptions and dosage instructions</p>
+             </div>
+             <div class="category-card">
+                 <h4>🔬 Lab Results</h4>
+                 <p>Test results, blood work, imaging reports</p>
+             </div>
+                                                   <div class="category-card">
+                 <h4>Insurance 🔒</h4>
+                 <p>Insurance cards, policy documents, claims</p>
+             </div>
+             <div class="category-card">
+                 <h4>ID Documents 🔒</h4>
+                 <p>Driver's license, passport, government IDs</p>
+             </div>
+         </div>
 
         <form id="uploadForm">
             <div class="form-group">
@@ -168,9 +164,8 @@
                     <option value="medical_record">Medical Records</option>
                     <option value="prescription">Prescriptions</option>
                     <option value="lab_result">Lab Results</option>
-                    <option value="insurance">Insurance</option>
-                    <option value="id_document">ID Documents</option>
-                    <option value="other">Other</option>
+                    <option value="insurance" disabled style="color: #9ca3af; cursor: not-allowed;">Insurance 🔒</option>
+                    <option value="id_document" disabled style="color: #9ca3af; cursor: not-allowed;">ID Documents 🔒</option>
                 </select>
             </div>
 

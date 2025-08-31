@@ -195,9 +195,8 @@ export const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalPr
               <option value="medical_record">🏥 Medical Records</option>
               <option value="prescription">💊 Prescriptions</option>
               <option value="lab_result">🔬 Lab Results</option>
-              <option value="insurance">🛡️ Insurance</option>
-              <option value="id_document">🆔 ID Documents</option>
-              <option value="other">📄 Other</option>
+                             <option value="insurance" disabled className="text-gray-400 cursor-not-allowed">Insurance 🔒</option>
+               <option value="id_document" disabled className="text-gray-400 cursor-not-allowed">ID Documents 🔒</option>
             </select>
             
             {/* Smart category suggestion */}
