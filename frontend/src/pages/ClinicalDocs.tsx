@@ -36,10 +36,24 @@ const ClinicalDocs = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<any>(null);
   
-  // Temporarily disable Convex integration to fix white screen
-  const clinicalDocs: any[] = [];
+  // Mock functions for now to get the app working
+  const clinicalDocs: any[] = []; // Empty array for now, will be populated from Convex later
   
   const [localDocs, setLocalDocs] = useState<any[]>([]);
+  
+  // Load documents from localStorage on component mount
+  useEffect(() => {
+    const savedDocs = localStorage.getItem('clinicalDocs');
+    if (savedDocs) {
+      try {
+        const parsedDocs = JSON.parse(savedDocs);
+        setLocalDocs(parsedDocs);
+        console.log("Loaded documents from localStorage:", parsedDocs);
+      } catch (error) {
+        console.error("Error loading documents from localStorage:", error);
+      }
+    }
+  }, []);
   
   // Calculate stats from actual documents
   const calculateStats = () => {
@@ -75,8 +89,36 @@ const ClinicalDocs = () => {
 
   const addClinicalDoc = async (docData: any) => {
     console.log("addClinicalDoc called with:", docData);
-    // This will be handled by local storage for now
-    return null;
+    
+    // Create a new document with local ID
+    const now = Date.now();
+    const newDoc = {
+      _id: `local-${now}`,
+      _creationTime: now,
+      createdAt: now,
+      userId: 'local',
+      title: docData.title,
+      content: docData.content,
+      category: docData.category,
+      tags: docData.tags || [],
+      attachments: docData.attachments || [],
+      fileType: docData.fileType,
+      fileName: docData.fileName,
+      updatedAt: now,
+      priority: docData.priority || false,
+      isPrivate: false,
+    };
+    
+    // Add to local state
+    setLocalDocs(prev => [newDoc, ...prev]);
+    
+    // Save to localStorage for persistence
+    const existingDocs = JSON.parse(localStorage.getItem('clinicalDocs') || '[]');
+    const updatedDocs = [newDoc, ...existingDocs];
+    localStorage.setItem('clinicalDocs', JSON.stringify(updatedDocs));
+    
+    console.log("Document saved locally and to localStorage:", newDoc);
+    return newDoc._id;
   };
   const updateDoc = async (docId: string, updates: any) => {
     console.log("updateDoc called with:", docId, updates);
@@ -84,11 +126,17 @@ const ClinicalDocs = () => {
     // Handle local document updates
     if (String(docId).startsWith('local-')) {
       console.log("Updating local document");
-      setLocalDocs(prev => prev.map(d => d._id === docId ? {
+      const updatedDocs = localDocs.map(d => d._id === docId ? {
         ...d,
         ...updates,
         updatedAt: Date.now(),
-      } : d));
+      } : d);
+      
+      setLocalDocs(updatedDocs);
+      
+      // Update localStorage
+      localStorage.setItem('clinicalDocs', JSON.stringify(updatedDocs));
+      
       console.log("Local document updated successfully");
       return true;
     }
@@ -103,7 +151,12 @@ const ClinicalDocs = () => {
     // Handle local document deletion
     if (String(docId).startsWith('local-')) {
       console.log("Deleting local document");
-      setLocalDocs(prev => prev.filter(d => d._id !== docId));
+      const updatedDocs = localDocs.filter(d => d._id !== docId);
+      setLocalDocs(updatedDocs);
+      
+      // Update localStorage
+      localStorage.setItem('clinicalDocs', JSON.stringify(updatedDocs));
+      
       console.log("Local document deleted successfully");
       return true;
     }
@@ -112,6 +165,8 @@ const ClinicalDocs = () => {
     console.log("Remote document deletion not implemented yet");
     return null;
   };
+  
+  const isUserLoaded = true; // Mock for now
   
   // Form state for creating/editing documents
   const [formData, setFormData] = useState({
@@ -267,8 +322,9 @@ const ClinicalDocs = () => {
             category: metadata.category,
             tags: metadata.tags,
             priority: metadata.priority,
-            doctorId: formData.doctorId || undefined,
             attachments: [objectUrl],
+            fileType: file.type,
+            fileName: file.name,
           });
         }
       } catch (convexError) {
@@ -324,7 +380,8 @@ const ClinicalDocs = () => {
             tags: formData.tags,
             attachments: [objectUrl],
             priority: formData.priority,
-            doctorId: formData.doctorId || undefined,
+            fileType: uploadFile.type,
+            fileName: uploadFile.name,
           });
         }
       } catch (convexError) {
