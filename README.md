@@ -1,6 +1,6 @@
 # SehatBeat
 
-A modern healthcare frontend platform offering intuitive digital wellness tools—from medicine ordering and reminders to AI-powered symptom analysis and clinical documentation.
+A modern healthcare frontend platform offering intuitive digital wellness tools-from medicine ordering and reminders to AI-powered symptom analysis and clinical documentation.
 
 ## Overview
 
