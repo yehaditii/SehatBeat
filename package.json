@@ -1,6 +1,9 @@
 {
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.41",
+    "ai": "^6.0.116",
     "convex": "^1.10.0",
+    "openai": "^6.27.0",
     "typescript": "^5.9.2"
   }
 }
